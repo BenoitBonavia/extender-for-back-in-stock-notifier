@@ -52,6 +52,18 @@ final class SettingsFields extends \WC_Settings_Page {
 	private const RESTART_ARG = 'ebisn_restart_renotify';
 
 	/**
+	 * Type de champ propre à l'activation d'un module.
+	 *
+	 * WooCommerce range la description d'une case à cocher DANS son étiquette :
+	 * y loger un paragraphe le rendrait cliquable en entier. Et une rangée
+	 * séparée laisse une colonne de gauche vide, d'où le texte décalé sous le
+	 * titre. Ce type dessine donc la rangée lui-même, avec la case et son
+	 * explication dans la même cellule — la disposition des écrans de réglages
+	 * de WordPress.
+	 */
+	private const MODULE_FIELD = 'ebisn_module';
+
+	/**
 	 * Constructeur.
 	 */
 	public function __construct() {
@@ -59,6 +71,79 @@ final class SettingsFields extends \WC_Settings_Page {
 		$this->label = __( 'Extender BIS', 'extender-for-back-in-stock-notifier' );
 
 		parent::__construct();
+
+		/*
+		 * Rappels STATIQUES : WordPress les déduplique par leur signature, là où
+		 * deux instances de cette classe donneraient deux fermetures distinctes,
+		 * donc chaque module dessiné en double.
+		 */
+		add_action( 'woocommerce_admin_field_' . self::MODULE_FIELD, array( self::class, 'render_module_field' ) );
+		add_filter( 'woocommerce_admin_settings_sanitize_option', array( self::class, 'sanitize_module_field' ), 10, 3 );
+	}
+
+	/**
+	 * Dessine la rangée d'activation d'un module.
+	 *
+	 * @param array<string, mixed> $field Champ, complété par WooCommerce.
+	 */
+	public static function render_module_field( $field ): void {
+		$field = (array) $field;
+
+		$id          = isset( $field['id'] ) ? (string) $field['id'] : '';
+		$title       = isset( $field['title'] ) ? (string) $field['title'] : '';
+		$label       = isset( $field['desc'] ) ? (string) $field['desc'] : '';
+		$explanation = isset( $field['explanation'] ) ? (string) $field['explanation'] : '';
+		$checked     = isset( $field['value'] ) && 'yes' === (string) $field['value'];
+
+		echo '<tr valign="top">';
+
+		printf(
+			'<th scope="row" class="titledesc"><label for="%1$s">%2$s</label></th>',
+			esc_attr( $id ),
+			esc_html( $title )
+		);
+
+		printf(
+			'<td class="forminp forminp-checkbox"><fieldset>'
+				. '<legend class="screen-reader-text"><span>%2$s</span></legend>'
+				. '<label for="%1$s">'
+					. '<input name="%1$s" id="%1$s" type="checkbox" value="1"%3$s /> %4$s'
+				. '</label>',
+			esc_attr( $id ),
+			esc_html( $title ),
+			checked( $checked, true, false ),
+			esc_html( $label )
+		);
+
+		if ( '' !== $explanation ) {
+			printf( '<p class="description">%s</p>', esc_html( $explanation ) );
+		}
+
+		echo '</fieldset></td></tr>';
+	}
+
+	/**
+	 * Ramène l'activation d'un module à `yes` ou `no` à l'enregistrement.
+	 *
+	 * WooCommerce ne sait convertir une case décochée — que le navigateur
+	 * n'envoie pas — que pour son propre type `checkbox`. Sans cela, la valeur
+	 * resterait nulle et l'ancienne serait conservée : un module ne pourrait
+	 * plus être désactivé.
+	 *
+	 * @param mixed                $value     Valeur calculée par WooCommerce.
+	 * @param array<string, mixed> $option    Champ concerné.
+	 * @param mixed                $raw_value Valeur brute reçue, `null` si absente.
+	 *
+	 * @return mixed
+	 */
+	public static function sanitize_module_field( $value, $option, $raw_value ) {
+		$option = (array) $option;
+
+		if ( ! isset( $option['type'] ) || self::MODULE_FIELD !== $option['type'] ) {
+			return $value;
+		}
+
+		return ( '1' === $raw_value || 'yes' === $raw_value ) ? 'yes' : 'no';
 	}
 
 	/**
@@ -843,30 +928,12 @@ final class SettingsFields extends \WC_Settings_Page {
 		 */
 		foreach ( $this->get_declared_modules() as $module ) {
 			$settings[] = array(
-				'title'   => $module->get_title(),
-				'desc'    => __( 'Activer', 'extender-for-back-in-stock-notifier' ),
-				'id'      => Settings::PREFIX . 'module_' . $module->get_id() . '_enabled',
-				'type'    => 'checkbox',
-				'default' => $module->is_enabled_by_default() ? 'yes' : 'no',
-			);
-
-			$description = $module->get_description();
-
-			if ( '' === $description ) {
-				continue;
-			}
-
-			/*
-			 * Une ligne à part plutôt que le `desc` de la case : celui-ci en est
-			 * l'étiquette cliquable, et y loger un paragraphe rendrait toute
-			 * l'explication cliquable. Le titre reste vide, la colonne de gauche
-			 * étant déjà occupée par celui de la case juste au-dessus.
-			 */
-			$settings[] = array(
-				'title' => '',
-				'type'  => 'info',
-				'text'  => '<span class="description">' . esc_html( $description ) . '</span>',
-				'id'    => Settings::PREFIX . 'module_' . $module->get_id() . '_description',
+				'title'       => $module->get_title(),
+				'desc'        => __( 'Activer', 'extender-for-back-in-stock-notifier' ),
+				'id'          => Settings::PREFIX . 'module_' . $module->get_id() . '_enabled',
+				'type'        => self::MODULE_FIELD,
+				'default'     => $module->is_enabled_by_default() ? 'yes' : 'no',
+				'explanation' => $module->get_description(),
 			);
 		}
 

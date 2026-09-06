@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.6.0
+Stable tag: 0.6.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -107,6 +107,12 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.6.1 =
+* Correction de la mise en page de la section Modules : l'explication de chaque module
+  s'affichait dans une rangée séparée, décalée sous le titre et laissant la case à cocher
+  seule au milieu du vide. Case et explication partagent désormais la même cellule, selon la
+  disposition des écrans de réglages de WordPress.
 
 = 0.6.0 =
 * Nouveau module « Renotification », désactivé par défaut : une inscription déjà notifiée
