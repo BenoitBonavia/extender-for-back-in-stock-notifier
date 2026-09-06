@@ -20,20 +20,20 @@ defined( 'ABSPATH' ) || exit;
  *
  * Deux mécanismes complémentaires, parce qu'aucun ne suffit seul :
  *
- * 1. Une règle de style sur `woocommerce-variation-add-to-cart-disabled`, la
- *    classe que WooCommerce pose dès qu'une déclinaison n'est pas achetable.
- *    Purement déclarative, elle ne dépend d'aucun script — donc fonctionne même
- *    sur les thèmes qui n'émettent pas l'événement `show_variation`.
- * 2. Un drapeau posé côté serveur d'après le balisage RÉELLEMENT produit par
- *    l'extension hôte, appliqué par un script. Il rattrape les thèmes qui
- *    redessinent le bloc sans reprendre la classe de WooCommerce, et atteint
- *    la quantité ou le bouton sortis de leur conteneur d'origine.
+ * 1. Un drapeau posé côté serveur d'après le balisage RÉELLEMENT produit par
+ *    l'extension hôte, appliqué par un script à l'événement `show_variation`.
+ *    C'est le mécanisme principal, et le plus juste : l'hôte n'affiche pas son
+ *    formulaire dans tous les cas de rupture, et l'affiche parfois hors rupture.
+ *    Ses conditions sont au nombre d'une dizaine (catégories, étiquettes, prix,
+ *    réassort, visiteurs connectés ou non, produits exclus…) et les redupliquer
+ *    garantissait de diverger tôt ou tard.
+ * 2. Une règle de style sur les classes d'état de WooCommerce, pour les thèmes
+ *    qui reproduisent son balisage sans déclencher ses événements.
  *
- * Le second mécanisme reste le plus juste : l'hôte n'affiche pas son formulaire
- * dans tous les cas de rupture, et l'affiche parfois hors rupture. Ses
- * conditions sont au nombre d'une dizaine (catégories, étiquettes, prix,
- * réassort, visiteurs connectés ou non, produits exclus…) et les redupliquer
- * garantissait de diverger tôt ou tard.
+ * Tant qu'aucune déclinaison n'est choisie, RIEN n'est masqué : on ne sait pas
+ * encore si une alerte sera proposée, et WooCommerce affiche là un bloc grisé
+ * qui signale au client qu'on attend un choix de sa part. Le masquer ferait
+ * disparaître la seule indication qu'il reste quelque chose à faire.
  *
  * Désactivé par défaut : le module modifie une page publique, ce qu'aucune mise
  * à jour ne devrait faire sans qu'on l'ait demandé.

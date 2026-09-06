@@ -10,12 +10,22 @@
  */
 
 /*
- * 1. La classe que WooCommerce pose lui-même dès que la déclinaison choisie
- *    n'est pas achetable — rupture de stock comprise. Purement déclaratif : ne
- *    dépend d'aucun script, donc fonctionne y compris sur les thèmes qui
- *    n'émettent pas l'événement `show_variation`.
+ * 1. Une déclinaison précise a été choisie, et elle n'est pas achetable.
+ *
+ *    `woocommerce-variation-add-to-cart-disabled` ne suffit pas à le dire : WooCommerce
+ *    la pose AUSSI tant qu'aucune déclinaison n'est sélectionnée, état où le bloc doit
+ *    rester visible et grisé — c'est ainsi que le client comprend qu'on attend un choix
+ *    de sa part. Les deux cas se distinguent sur le bouton :
+ *
+ *      - `wc-variation-selection-needed`  → rien de choisi, on ne masque pas ;
+ *      - `wc-variation-is-unavailable`    → choix fait, rien à vendre, on masque.
+ *
+ *    Cette règle ne sert que les thèmes qui reproduisent le balisage de WooCommerce
+ *    sans déclencher ses événements : partout ailleurs, la règle 2 a déjà tranché sur
+ *    ce que le serveur a constaté. Un navigateur sans `:has()` l'ignore purement et
+ *    simplement — le bloc reste alors visible, ce qui est le bon sens de dégradation.
  */
-.woocommerce-variation-add-to-cart-disabled {
+.woocommerce-variation-add-to-cart-disabled:has( .wc-variation-is-unavailable ) {
 	display: none !important;
 }
 

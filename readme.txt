@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.6.1
+Stable tag: 0.6.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -107,6 +107,14 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.6.2 =
+* Correction : sur un produit variable, la quantité et le bouton d'ajout au panier
+  disparaissaient avant même qu'une déclinaison soit choisie — alors qu'on ne sait pas encore
+  si une alerte de retour en stock sera proposée. Le comportement par défaut de WooCommerce
+  est rétabli tant que rien n'est sélectionné : bloc visible mais grisé, ce qui indique au
+  client qu'on attend un choix de sa part. La règle de style ne s'applique plus qu'à une
+  déclinaison effectivement choisie et indisponible.
 
 = 0.6.1 =
 * Correction de la mise en page de la section Modules : l'explication de chaque module
