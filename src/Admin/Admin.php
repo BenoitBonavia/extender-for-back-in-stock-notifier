@@ -7,66 +7,29 @@
 
 namespace EBISN\Admin;
 
-use EBISN\Integration\BackInStockNotifier;
-
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Enregistre l'onglet de réglages, les ressources et les liens d'action.
+ * Enregistre l'écran de réglages, les ressources et les liens d'action.
  */
 final class Admin {
 
 	/**
-	 * Identifiant de l'onglet de réglages WooCommerce.
+	 * Identifiant interne du jeu de réglages.
+	 *
+	 * Sert d'identifiant à `SettingsFields`, dont héritent les filtres
+	 * d'extensibilité de WooCommerce (`woocommerce_get_settings_ebisn`).
 	 */
-	public const SETTINGS_TAB = 'ebisn';
+	public const SETTINGS_ID = 'ebisn';
 
 	/**
 	 * Accroche les hooks d'administration.
 	 */
 	public function register(): void {
-		add_filter( 'woocommerce_get_settings_pages', array( $this, 'add_settings_page' ) );
 		add_filter( 'plugin_action_links_' . EBISN_BASENAME, array( $this, 'add_action_links' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
-		// Priorité 25 : après les écrans des modules, qui s'ajoutent en 20.
-		add_action( 'admin_menu', array( $this, 'add_settings_shortcut' ), 25 );
-	}
-
-	/**
-	 * Ajoute un raccourci vers les réglages dans le menu de l'extension hôte.
-	 *
-	 * Les écrans de ce plugin vivent sous « Instock Notifier », mais ses
-	 * réglages sont un onglet de WooCommerce — c'est là que WooCommerce attend
-	 * les réglages d'une extension, et cela évite un énième menu de premier
-	 * niveau. Restait que rien ne reliait les deux : ce raccourci s'en charge.
-	 *
-	 * Le slug est ici une URL et non un identifiant de page : WordPress le
-	 * reconnaît et produit un simple lien, sans callback de rendu. C'est le
-	 * mécanisme qu'emploie l'extension hôte elle-même pour son écran
-	 * « Estimate Stock Arrival ».
-	 */
-	public function add_settings_shortcut(): void {
-		add_submenu_page(
-			BackInStockNotifier::MENU_PARENT,
-			__( 'Réglages Extender', 'extender-for-back-in-stock-notifier' ),
-			__( 'Réglages Extender', 'extender-for-back-in-stock-notifier' ),
-			'manage_woocommerce',
-			'admin.php?page=wc-settings&tab=' . self::SETTINGS_TAB
-		);
-	}
-
-	/**
-	 * Ajoute l'onglet de réglages à WooCommerce.
-	 *
-	 * @param array<int, \WC_Settings_Page> $pages Pages de réglages existantes.
-	 *
-	 * @return array<int, \WC_Settings_Page>
-	 */
-	public function add_settings_page( array $pages ): array {
-		$pages[] = new SettingsTab();
-
-		return $pages;
+		( new SettingsPage() )->register();
 	}
 
 	/**
@@ -91,28 +54,26 @@ final class Admin {
 	/**
 	 * URL de la page de réglages du plugin.
 	 *
+	 * @param string $section Section à ouvrir, vide pour la première.
+	 *
 	 * @return string
 	 */
-	public static function get_settings_url(): string {
-		return admin_url( 'admin.php?page=wc-settings&tab=' . self::SETTINGS_TAB );
+	public static function get_settings_url( string $section = '' ): string {
+		return SettingsPage::url( $section );
 	}
 
 	/**
-	 * Charge CSS et JS uniquement sur les écrans du plugin.
+	 * Charge le script d'administration commun.
+	 *
+	 * Les feuilles de styles sont enfilées par les écrans qui en ont besoin :
+	 * chacun connaît le sien, et rien ne justifie de les charger ailleurs.
 	 *
 	 * @param string $hook_suffix Écran courant.
 	 */
 	public function enqueue_assets( string $hook_suffix ): void {
-		if ( ! $this->is_plugin_screen( $hook_suffix ) ) {
+		if ( false === strpos( $hook_suffix, SettingsPage::SLUG ) ) {
 			return;
 		}
-
-		wp_enqueue_style(
-			'ebisn-admin',
-			EBISN_URL . 'assets/css/admin.css',
-			array(),
-			EBISN_VERSION
-		);
 
 		// $args en tableau (WordPress 6.3+) plutôt que le booléen $in_footer.
 		wp_enqueue_script(
@@ -141,23 +102,5 @@ final class Admin {
 			) . ';',
 			'before'
 		);
-	}
-
-	/**
-	 * Détermine si l'écran courant appartient au plugin.
-	 *
-	 * @param string $hook_suffix Écran courant.
-	 *
-	 * @return bool
-	 */
-	private function is_plugin_screen( string $hook_suffix ): bool {
-		if ( 'woocommerce_page_wc-settings' !== $hook_suffix ) {
-			return false;
-		}
-
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- simple lecture de contexte.
-		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
-
-		return self::SETTINGS_TAB === $tab;
 	}
 }

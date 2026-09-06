@@ -323,7 +323,7 @@ final class SizeMatrixPage {
 			/* translators: 1: liste des statuts comptés, 2: URL des réglages. */
 			esc_html__( 'Statuts comptés : %1$s. %2$s', 'extender-for-back-in-stock-notifier' ),
 			esc_html( implode( ', ', $statuses ) ),
-			'<a href="' . esc_url( Admin::get_settings_url() . '&section=matrix' ) . '">'
+			'<a href="' . esc_url( Admin::get_settings_url( 'matrix' ) ) . '">'
 				. esc_html__( 'Modifier ces réglages', 'extender-for-back-in-stock-notifier' ) . '</a>'
 		);
 

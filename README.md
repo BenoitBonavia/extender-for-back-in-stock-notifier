@@ -4,7 +4,7 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.4.0
+- **Version** : 0.4.1
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
   Back In Stock Notifier 7.0+ (relu sur 7.4.2)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
@@ -42,7 +42,8 @@ extender-for-back-in-stock-notifier/
     │   └── Brevo.php                        Tout ce qu'on sait des extensions Brevo
     ├── Admin/
     │   ├── Admin.php                        Hooks admin, assets, lien « Réglages »
-    │   ├── SettingsTab.php                  WooCommerce → Réglages → Extender BIS
+    │   ├── SettingsPage.php                 Écran de réglages, sous le menu de l'hôte
+    │   ├── SettingsFields.php               Sections et champs de réglages
     │   ├── StatsBanner.php                  Bandeau d'indicateurs sur la liste des inscrits
     │   ├── SizeMatrixPage.php               Écran « Demandes par taille »
     │   ├── SizeMatrixTable.php              WP_List_Table à colonnes dynamiques

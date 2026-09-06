@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -18,7 +18,7 @@ Extender for Back In Stock Notifier complète l'extension
 plutôt que de la remplacer. Elle ne fonctionne pas sans elle.
 
 Chaque règle ajoutée devient un « module » autonome, activable individuellement depuis
-WooCommerce → Réglages → Extender BIS → Modules.
+Instock Notifier → Réglages Extender → Modules.
 
 Modules disponibles :
 
@@ -55,8 +55,7 @@ directement dans l'écran Extensions de WordPress.
 2. Téléverser l'archive depuis Extensions → Ajouter → Téléverser une extension.
 3. Activer l'extension. WordPress refuse l'activation tant que les deux dépendances
    ne sont pas actives.
-4. Configurer depuis Instock Notifier → Réglages Extender, ou directement dans
-   WooCommerce → Réglages → Extender BIS.
+4. Configurer depuis Instock Notifier → Réglages Extender.
 
 == Frequently Asked Questions ==
 
@@ -100,6 +99,15 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.4.1 =
+* Les réglages ne sont plus un onglet de WooCommerce : la page vit désormais sous le menu
+  Instock Notifier, avec les autres écrans de l'extension. L'ancienne adresse redirige.
+* Les statuts de commande déclenchant une conversion se choisissent dans une liste plutôt
+  que de se saisir séparés par des virgules. Une valeur enregistrée au format précédent
+  reste comprise.
+* La section Brevo signale désormais que ses réglages — dont la case de consentement du
+  formulaire — restent sans effet tant que le module est inactif.
 
 = 0.4.0 =
 * Nouveau module « Désabonnement » : le formulaire d'inscription est remplacé par un bouton
@@ -178,6 +186,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.4.1 =
+Les réglages passent sous le menu Instock Notifier. Aucune donnée n'est modifiée.
 
 = 0.4.0 =
 Ajoute le désabonnement côté client. Pensez à insérer {unsubscribe_url} dans vos gabarits

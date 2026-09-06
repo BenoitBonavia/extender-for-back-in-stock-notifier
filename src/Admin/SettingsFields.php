@@ -1,6 +1,6 @@
 <?php
 /**
- * Onglet de réglages WooCommerce.
+ * Définition des champs de réglages.
  *
  * @package ExtenderForBackInStockNotifier
  */
@@ -10,6 +10,7 @@ namespace EBISN\Admin;
 use EBISN\Brevo\Client;
 use EBISN\Brevo\Contacts;
 use EBISN\Brevo\Lists;
+use EBISN\Conversion\OrderMatcher;
 use EBISN\Integration\BackInStockNotifier;
 use EBISN\Integration\Brevo;
 use EBISN\Matrix\DemandMatrix;
@@ -21,12 +22,20 @@ use EBISN\Unsubscribe\VisitorCookie;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * WooCommerce → Réglages → Extender BIS.
+ * Sections et champs de réglages de l'extension.
+ *
+ * Hérite de `WC_Settings_Page` sans être enregistrée comme onglet de
+ * WooCommerce : les réglages vivent sous le menu de l'extension hôte, où
+ * `SettingsPage` les affiche. L'héritage n'est conservé que pour ce qu'il
+ * apporte — la résolution des méthodes `get_settings_for_{section}_section()`
+ * et les filtres d'extensibilité de WooCommerce — et parce que les champs sont
+ * rendus et enregistrés par `WC_Admin_Settings`, donc avec l'apparence et le
+ * comportement attendus d'un écran de réglages WooCommerce.
  *
  * Les identifiants de champs servent directement de noms d'options : ils
  * doivent donc rester préfixés par `ebisn_` (cf. Settings::PREFIX).
  */
-final class SettingsTab extends \WC_Settings_Page {
+final class SettingsFields extends \WC_Settings_Page {
 
 	/**
 	 * Paramètre d'URL demandant un rafraîchissement des données Brevo.
@@ -34,10 +43,10 @@ final class SettingsTab extends \WC_Settings_Page {
 	private const REFRESH_ARG = 'ebisn_refresh_brevo';
 
 	/**
-	 * Déclare l'onglet auprès de WooCommerce.
+	 * Constructeur.
 	 */
 	public function __construct() {
-		$this->id    = Admin::SETTINGS_TAB;
+		$this->id    = Admin::SETTINGS_ID;
 		$this->label = __( 'Extender BIS', 'extender-for-back-in-stock-notifier' );
 
 		parent::__construct();
@@ -207,6 +216,22 @@ final class SettingsTab extends \WC_Settings_Page {
 	}
 
 	/**
+	 * Statuts de commande proposés au déclenchement d'une conversion.
+	 *
+	 * Les clés conservent leur préfixe `wc-`, comme WooCommerce les expose et
+	 * les enregistre ; `OrderMatcher` le retire au moment de comparer.
+	 *
+	 * @return array<string, string>
+	 */
+	private function order_status_options(): array {
+		if ( ! function_exists( 'wc_get_order_statuses' ) ) {
+			return array();
+		}
+
+		return array_map( 'strval', wc_get_order_statuses() );
+	}
+
+	/**
 	 * Attributs de produit proposés comme axe de la matrice.
 	 *
 	 * @return array<string, string>
@@ -265,11 +290,12 @@ final class SettingsTab extends \WC_Settings_Page {
 			),
 			array(
 				'title'    => __( 'Statuts de commande', 'extender-for-back-in-stock-notifier' ),
-				'desc_tip' => __( 'Statuts, séparés par des virgules, à partir desquels une commande vaut achat.', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Statuts à partir desquels une commande vaut achat. Les statuts ajoutés par vos extensions apparaissent aussi dans cette liste.', 'extender-for-back-in-stock-notifier' ),
 				'id'       => Settings::PREFIX . 'conversion_order_statuses',
-				'type'     => 'text',
-				'default'  => 'processing,completed',
-				'css'      => 'width:320px;',
+				'type'     => 'multiselect',
+				'options'  => $this->order_status_options(),
+				'default'  => OrderMatcher::DEFAULT_ORDER_STATUSES,
+				'class'    => 'wc-enhanced-select',
 			),
 			array(
 				'title'    => __( 'Fenêtre d’attribution', 'extender-for-back-in-stock-notifier' ),
@@ -466,7 +492,31 @@ final class SettingsTab extends \WC_Settings_Page {
 		return esc_html__(
 			'Les inscrits sont poussés vers la liste choisie. Brevo identifiant un contact par son adresse, un envoi répété ne crée jamais de doublon.',
 			'extender-for-back-in-stock-notifier'
-		) . '<br>' . $this->brevo_connection_status();
+		) . '<br>' . $this->brevo_connection_status() . $this->brevo_module_warning();
+	}
+
+	/**
+	 * Avertit si les réglages Brevo ne peuvent pas produire d'effet.
+	 *
+	 * La case de consentement, en particulier, n'est ajoutée au formulaire que
+	 * si le module est actif : la cocher sans activer le module ne produit rien,
+	 * et rien ne l'expliquait.
+	 *
+	 * @return string
+	 */
+	private function brevo_module_warning(): string {
+		$module = Plugin::instance()->get_module( 'brevo_sync' );
+
+		if ( null !== $module ) {
+			return '';
+		}
+
+		return '<br><strong style="color:#b26200">' . sprintf(
+			/* translators: %s: URL de la section des modules. */
+			esc_html__( 'Le module « Synchronisation Brevo » est inactif : ces réglages, y compris la case de consentement du formulaire, restent sans effet. %s', 'extender-for-back-in-stock-notifier' ),
+			'<a href="' . esc_url( Admin::get_settings_url( 'modules' ) ) . '">'
+				. esc_html__( 'Activer le module', 'extender-for-back-in-stock-notifier' ) . '</a>'
+		) . '</strong>';
 	}
 
 	/**

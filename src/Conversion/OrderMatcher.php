@@ -20,15 +20,32 @@ defined( 'ABSPATH' ) || exit;
 final class OrderMatcher {
 
 	/**
+	 * Statuts de commande valant achat, par défaut.
+	 *
+	 * Préfixés `wc-`, comme WooCommerce les expose et les enregistre.
+	 */
+	public const DEFAULT_ORDER_STATUSES = array( 'wc-processing', 'wc-completed' );
+
+	/**
 	 * Statuts de commande valant achat.
 	 *
 	 * @return string[] Statuts sans le préfixe `wc-`.
 	 */
 	public static function order_statuses(): array {
-		$configured = Settings::get( 'conversion_order_statuses', '' );
-		$statuses   = is_string( $configured ) && '' !== $configured
-			? array_map( 'trim', explode( ',', $configured ) )
-			: array( 'processing', 'completed' );
+		$configured = Settings::get( 'conversion_order_statuses', self::DEFAULT_ORDER_STATUSES );
+
+		if ( is_array( $configured ) ) {
+			$statuses = $configured;
+		} elseif ( is_string( $configured ) && '' !== trim( $configured ) ) {
+			/*
+			 * Format hérité : les statuts étaient saisis dans un champ texte,
+			 * séparés par des virgules. Une valeur enregistrée avant le passage
+			 * à la liste à choix multiples doit continuer de fonctionner.
+			 */
+			$statuses = explode( ',', $configured );
+		} else {
+			$statuses = self::DEFAULT_ORDER_STATUSES;
+		}
 
 		/**
 		 * Statuts de commande déclenchant une conversion.
