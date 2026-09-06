@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.4.6
+Stable tag: 0.5.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -39,6 +39,9 @@ Modules disponibles :
   remplace le formulaire d'inscription par un bouton de désabonnement, et fournit un lien
   signé aux gabarits d'e-mail — seul recours fiable pour une personne sans compte. Le libellé
   du bouton et les messages sont réglables.
+* **Masquer l'ajout au panier** (désactivé par défaut). Retire le sélecteur de quantité et
+  le bouton d'ajout au panier là où une alerte de retour en stock est proposée : on ne peut
+  pas à la fois commander un produit et demander à être prévenu de son retour.
 * **Synchronisation Brevo** (désactivé par défaut). Pousse les adresses inscrites vers une
   liste Brevo, au fil de l'eau et en rattrapage. Les attributs décrivent l'ensemble des
   produits qu'une personne attend, et sont recalculés à chaque envoi.
@@ -99,6 +102,11 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.5.0 =
+* Nouveau module « Masquer l'ajout au panier », désactivé par défaut : retire le sélecteur
+  de quantité et le bouton d'ajout au panier sur les produits et déclinaisons indisponibles
+  proposant une alerte de retour en stock.
 
 = 0.4.6 =
 * Correction : en mode fenêtre modale, la fiche produit continuait d'afficher le bouton
@@ -222,6 +230,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.5.0 =
+Ajoute un module facultatif masquant l'ajout au panier des produits indisponibles.
 
 = 0.4.6 =
 Corrige le bouton de désabonnement en mode fenêtre modale.

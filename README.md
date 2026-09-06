@@ -4,7 +4,7 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.4.6
+- **Version** : 0.5.0
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
   Back In Stock Notifier 7.0+ (relu sur 7.4.2)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
@@ -89,6 +89,7 @@ extender-for-back-in-stock-notifier/
     │   ├── ConversionStats.php              Module « indicateurs »
     │   ├── SizeMatrix.php                   Module « Demandes par taille »
     │   ├── Unsubscribe.php                  Module « Désabonnement »
+    │   ├── HideAddToCart.php                Module « Masquer l'ajout au panier »
     │   └── BrevoSync.php                    Module « Brevo » (désactivé par défaut)
     └── Support/
         ├── Settings.php                     Lecture/écriture des options ebisn_*
@@ -109,6 +110,7 @@ extender-for-back-in-stock-notifier/
 | Valeur des listes d'attente | `conversion_stats` | oui | Affiche au-dessus de la liste des inscrits la valeur en attente, le chiffre d'affaires récupéré et le taux de conversion. |
 | Demandes par taille | `size_matrix` | oui | Écran croisant les demandes par produit et par déclinaison, avec recherche, tri, pagination et export CSV. L'attribut porté en colonnes et les statuts comptés sont réglables. |
 | Désabonnement | `unsubscribe` | oui | Remplace le formulaire d'inscription par un bouton de désabonnement, et fournit un lien signé aux e-mails. Libellé et messages réglables. |
+| Masquer l'ajout au panier | `hide_add_to_cart` | **non** | Retire le sélecteur de quantité et le bouton d'ajout au panier là où une alerte de retour en stock est proposée. |
 | Synchronisation Brevo | `brevo_sync` | **non** | Pousse les adresses inscrites vers une liste Brevo. Dépend de l'extension Brevo (`mailin`) ou d'une clé d'API saisie manuellement. |
 
 ### Dépendance optionnelle à Brevo

@@ -1,0 +1,17 @@
+/**
+ * Masque l'ajout au panier là où une alerte de retour en stock est proposée.
+ *
+ * WooCommerce marque lui-même le bloc d'une classe `…-disabled` dès que la
+ * déclinaison choisie n'est pas achetable — rupture de stock comprise. Il
+ * suffit donc de s'appuyer dessus : aucun script à ajouter, et le comportement
+ * suit exactement celui du cœur, y compris pour les thèmes qui redessinent le
+ * formulaire.
+ *
+ * Le bloc reste dans le document plutôt que d'être retiré : le script de
+ * WooCommerce continue de le manipuler, et le sélecteur de déclinaison — lui —
+ * doit rester utilisable.
+ */
+
+.woocommerce-variation-add-to-cart.woocommerce-variation-add-to-cart-disabled {
+	display: none;
+}

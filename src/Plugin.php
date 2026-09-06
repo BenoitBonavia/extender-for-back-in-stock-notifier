@@ -121,6 +121,7 @@ final class Plugin {
 				\EBISN\Modules\ConversionStats::class,
 				\EBISN\Modules\SizeMatrix::class,
 				\EBISN\Modules\Unsubscribe::class,
+				\EBISN\Modules\HideAddToCart::class,
 				\EBISN\Modules\BrevoSync::class,
 			)
 		);
