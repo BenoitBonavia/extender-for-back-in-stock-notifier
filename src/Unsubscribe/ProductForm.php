@@ -15,16 +15,23 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Remplace le formulaire d'inscription par un bouton de désabonnement.
  *
- * Le remplacement s'appuie sur un mécanisme prévu par l'extension hôte : quand
- * `cwginstock_display_subscribe_form` renvoie `false`, celle-ci ne rend pas son
- * formulaire et déclenche `cwginstock_custom_form` à la place — après avoir
- * évalué stock, visibilité, catégories, étiquettes et réassort. Aucune de ces
- * règles n'est donc à redupliquer, et le procédé vaut aussi bien pour un
- * produit simple que pour une déclinaison.
+ * Le remplacement se fait en substituant le GABARIT, et non en demandant à
+ * l'extension hôte de ne pas afficher son formulaire. Ce détour n'en est pas
+ * un : l'hôte rend son formulaire par dix chemins différents — produit simple,
+ * déclinaison, produit groupé, shortcode, et six compatibilités avec des
+ * extensions tierces — dont plusieurs ne consultent jamais son filtre
+ * `cwginstock_display_subscribe_form`. Le shortcode notamment appelle
+ * `display_subscribe_box()` sans son troisième paramètre, donc avec l'affichage
+ * forcé.
  *
- * Conséquence à connaître : l'encart n'apparaît que là où l'hôte afficherait
- * son formulaire, donc sur un produit indisponible. Un produit revenu en stock
- * n'affiche plus rien, et le lien reçu par e-mail devient le seul recours.
+ * Tous, en revanche, instancient `CWG_Template`, et passent donc par
+ * `cwginstock_locate_template`. C'est le seul point commun aux dix.
+ *
+ * L'encart hérite ainsi de toutes les conditions de l'hôte — stock, visibilité,
+ * catégories, étiquettes, réassort — puisqu'il s'affiche exactement là où le
+ * formulaire se serait affiché. Conséquence à connaître : sur un produit revenu
+ * en stock, l'hôte ne rend rien, et le lien reçu par e-mail devient le seul
+ * recours.
  */
 final class ProductForm {
 
@@ -37,6 +44,16 @@ final class ProductForm {
 	 * Action du nonce.
 	 */
 	private const NONCE = 'ebisn_unsubscribe';
+
+	/**
+	 * Gabarit du formulaire d'inscription de l'extension hôte.
+	 */
+	private const HOST_TEMPLATE = 'default-form.php';
+
+	/**
+	 * Notre gabarit de remplacement.
+	 */
+	private const OWN_TEMPLATE = 'unsubscribe.php';
 
 	/**
 	 * Service de désabonnement.
@@ -88,8 +105,21 @@ final class ProductForm {
 	 * Accroche les hooks.
 	 */
 	public function register(): void {
-		add_filter( Host::HOOK_DISPLAY_FORM, array( $this, 'hide_subscribe_form' ), 20, 3 );
-		add_action( Host::HOOK_CUSTOM_FORM, array( $this, 'render' ), 10, 2 );
+		/*
+		 * Substitution du gabarit, plutôt que le filtre d'affichage de l'hôte.
+		 *
+		 * `cwginstock_display_subscribe_form` paraissait le point de greffe
+		 * naturel, mais il n'est PAS consulté par tous les chemins de rendu :
+		 * le shortcode `[cwginstock_subscribe_form]` appelle
+		 * `display_subscribe_box()` sans son troisième paramètre, donc avec
+		 * `$display = true` en dur. Un thème plaçant le formulaire par ce
+		 * shortcode ne voyait jamais notre encart.
+		 *
+		 * `cwginstock_locate_template` est en revanche traversé par les dix
+		 * chemins de rendu, puisque tous instancient `CWG_Template`. Priorité 20
+		 * pour passer après `force_template_from_plugin`, que l'hôte y branche.
+		 */
+		add_filter( 'cwginstock_locate_template', array( $this, 'swap_template' ), 20, 5 );
 
 		add_action( 'wp_ajax_' . self::ACTION, array( $this, 'handle_ajax' ) );
 		add_action( 'wp_ajax_nopriv_' . self::ACTION, array( $this, 'handle_ajax' ) );
@@ -142,65 +172,100 @@ final class ProductForm {
 	 * @return string
 	 */
 	private function explain_decision( int $target ): string {
-		if ( array() === $this->decisions ) {
-			return __( 'filtre d’affichage jamais consulté — le formulaire vient d’ailleurs', 'extender-for-back-in-stock-notifier' );
-		}
-
 		if ( ! array_key_exists( $target, $this->decisions ) ) {
-			return sprintf(
-				/* translators: %s: liste d'identifiants de produits. */
-				__( 'filtre consulté pour d’autres produits (%s), pas pour celui-ci', 'extender-for-back-in-stock-notifier' ),
-				implode( ', ', array_map( 'strval', array_keys( $this->decisions ) ) )
-			);
+			return __( 'gabarit non intercepté — ce formulaire n’est pas rendu par l’extension hôte', 'extender-for-back-in-stock-notifier' );
 		}
 
 		return $this->decisions[ $target ]
-			? __( 'filtre : formulaire laissé visible', 'extender-for-back-in-stock-notifier' )
-			: __( 'filtre : formulaire demandé masqué, mais l’extension hôte l’affiche quand même', 'extender-for-back-in-stock-notifier' );
+			? __( 'gabarit intercepté : aucune demande à désabonner ici', 'extender-for-back-in-stock-notifier' )
+			: __( 'gabarit intercepté et remplacé', 'extender-for-back-in-stock-notifier' );
 	}
 
 	/**
-	 * Masque le formulaire d'inscription si le visiteur est déjà inscrit.
+	 * Substitue notre gabarit au formulaire d'inscription.
 	 *
-	 * @param bool                               $display   Décision des filtres précédents.
-	 * @param \WC_Product                        $product   Produit affiché.
-	 * @param \WC_Product_Variation|array<mixed> $variation Déclinaison affichée.
+	 * @param string              $template      Gabarit résolu par l'hôte.
+	 * @param string              $template_name Nom du gabarit demandé.
+	 * @param string              $template_path Dossier de surcharge du thème.
+	 * @param string              $default_path  Dossier de gabarits de l'hôte.
+	 * @param array<string,mixed> $args          Variables destinées au gabarit.
 	 *
-	 * @return bool
+	 * @return string
 	 */
-	public function hide_subscribe_form( $display, $product, $variation ): bool {
-		if ( ! $display ) {
-			return false;
+	public function swap_template( $template, $template_name, $template_path, $default_path, $args ): string {
+		unset( $template_path, $default_path );
+
+		if ( self::HOST_TEMPLATE !== $template_name || ! is_array( $args ) ) {
+			return (string) $template;
 		}
 
-		$target = $this->target_id( $product, $variation );
+		$target = $this->target_from_args( $args );
 
 		if ( $target <= 0 ) {
-			return true;
+			return (string) $template;
 		}
 
 		$this->found[ $target ]     = $this->locator->find_for_current_visitor( $target );
 		$this->decisions[ $target ] = empty( $this->found[ $target ] );
 
-		return $this->decisions[ $target ];
+		if ( $this->decisions[ $target ] ) {
+			return (string) $template;
+		}
+
+		return self::locate_own_template();
 	}
 
 	/**
-	 * Affiche l'encart, à la place du formulaire.
+	 * Chemin de notre gabarit, surcharge du thème comprise.
 	 *
-	 * @param \WC_Product                        $product   Produit affiché.
-	 * @param \WC_Product_Variation|array<mixed> $variation Déclinaison affichée.
+	 * @return string
 	 */
-	public function render( $product, $variation ): void {
-		$target = $this->target_id( $product, $variation );
+	private static function locate_own_template(): string {
+		$found = locate_template(
+			array(
+				'extender-for-back-in-stock-notifier/' . self::OWN_TEMPLATE,
+				self::OWN_TEMPLATE,
+			)
+		);
 
-		if ( $target <= 0 || empty( $this->found[ $target ] ) ) {
+		return '' !== $found ? $found : EBISN_PATH . 'templates/' . self::OWN_TEMPLATE;
+	}
+
+	/**
+	 * Produit attendu, tel que l'hôte l'enregistre, d'après le contexte du gabarit.
+	 *
+	 * @param array<string, mixed> $args Variables du gabarit.
+	 *
+	 * @return int
+	 */
+	private function target_from_args( array $args ): int {
+		$variation_id = isset( $args['variation_id'] ) ? (int) $args['variation_id'] : 0;
+
+		if ( $variation_id > 0 ) {
+			return $variation_id;
+		}
+
+		return isset( $args['product_id'] ) ? (int) $args['product_id'] : 0;
+	}
+
+	/**
+	 * Affiche l'encart. Appelé par le gabarit.
+	 *
+	 * @param int $product_id   Produit affiché.
+	 * @param int $variation_id Déclinaison affichée, `0` si aucune.
+	 */
+	public static function render_box( int $product_id, int $variation_id = 0 ): void {
+		$target = $variation_id > 0 ? $variation_id : $product_id;
+
+		$found = ( new SubscriberLocator() )->find_for_current_visitor( $target );
+
+		if ( empty( $found ) ) {
 			return;
 		}
 
-		$subscription_id = (int) $this->found[ $target ][0];
+		$subscription_id = (int) $found[0];
 
-		$confirmation = $this->needs_confirmation()
+		$confirmation = Settings::get_bool( 'unsubscribe_confirm', false )
 			? __( 'Ne plus recevoir d’alerte pour ce produit ?', 'extender-for-back-in-stock-notifier' )
 			: '';
 
@@ -369,33 +434,5 @@ final class ProductForm {
 		return '' !== $message
 			? $message
 			: __( 'Vous ne serez plus prévenu·e pour ce produit.', 'extender-for-back-in-stock-notifier' );
-	}
-
-	/**
-	 * Faut-il demander confirmation avant de désabonner ?
-	 *
-	 * @return bool
-	 */
-	private function needs_confirmation(): bool {
-		return Settings::get_bool( 'unsubscribe_confirm', false );
-	}
-
-	/**
-	 * Identifiant du produit attendu, tel que l'hôte l'enregistre.
-	 *
-	 * La déclinaison quand il y en a une, le produit sinon — c'est la
-	 * convention de `cwginstock_pid`.
-	 *
-	 * @param mixed $product   Produit affiché.
-	 * @param mixed $variation Déclinaison affichée.
-	 *
-	 * @return int
-	 */
-	private function target_id( $product, $variation ): int {
-		if ( $variation instanceof \WC_Product_Variation ) {
-			return $variation->get_id();
-		}
-
-		return $product instanceof \WC_Product ? $product->get_id() : 0;
 	}
 }

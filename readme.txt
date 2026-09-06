@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.4.4
+Stable tag: 0.4.5
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -99,6 +99,14 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.4.5 =
+* Correction : le bouton de désabonnement n'apparaissait pas lorsque le formulaire était
+  placé par le shortcode [cwginstock_subscribe_form], ce que font plusieurs thèmes. Ce
+  chemin de rendu, comme trois autres, ne consulte jamais le filtre d'affichage de
+  l'extension hôte. Le remplacement se fait désormais au niveau du gabarit, par lequel
+  passent les dix chemins de rendu.
+* Le gabarit de l'encart est surchargeable depuis le thème.
 
 = 0.4.4 =
 * La note de diagnostic indique aussi ce que le filtre d'affichage a décidé, et pour quels
@@ -206,6 +214,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.4.5 =
+Corrige l'absence du bouton de désabonnement selon la façon dont le formulaire est placé.
 
 = 0.4.4 =
 Complète l'aide au diagnostic du bouton de désabonnement.

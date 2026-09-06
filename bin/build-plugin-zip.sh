@@ -145,6 +145,7 @@ if command -v unzip >/dev/null 2>&1; then
 		"$SLUG/assets/css/admin.css" \
 		"$SLUG/assets/js/admin.js" \
 		"$SLUG/assets/css/unsubscribe.css" \
+		"$SLUG/templates/unsubscribe.php" \
 		"$SLUG/assets/js/unsubscribe.js" \
 		"$SLUG/lib/plugin-update-checker/plugin-update-checker.php" \
 		"$SLUG/lib/plugin-update-checker/vendor/PucReadmeParser.php"
