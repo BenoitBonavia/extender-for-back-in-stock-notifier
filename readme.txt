@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.5.1
+Stable tag: 0.5.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -102,6 +102,11 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.5.2 =
+* Le masquage s'applique aussi par une simple règle de style sur la classe que WooCommerce
+  pose lui-même — il ne dépend donc plus d'un événement JavaScript que certains thèmes
+  n'émettent pas.
 
 = 0.5.1 =
 * Correction : le bouton de commande restait visible sur certains thèmes. Le masquage ne
@@ -236,6 +241,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.5.2 =
+Rend le masquage de l'ajout au panier indépendant du thème.
 
 = 0.5.1 =
 Corrige le masquage de l'ajout au panier sur les thèmes personnalisés.

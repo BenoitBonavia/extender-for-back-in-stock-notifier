@@ -1,11 +1,30 @@
 /**
  * Masquage de l'ajout au panier là où une alerte de réassort est proposée.
  *
- * `!important` assumé : la règle doit l'emporter sur le `display` que le script
- * de WooCommerce, ou le thème, réapplique au bloc à chaque changement de
- * déclinaison. Sans lui, le bouton réapparaît au premier clic.
+ * Deux règles, volontairement redondantes, parce qu'elles ne couvrent pas les
+ * mêmes défaillances.
+ *
+ * `!important` assumé dans les deux cas : le script de WooCommerce et nombre de
+ * thèmes réappliquent un `display` au bloc à chaque changement de déclinaison.
+ * Sans lui, le bouton réapparaît au premier clic.
  */
 
+/*
+ * 1. La classe que WooCommerce pose lui-même dès que la déclinaison choisie
+ *    n'est pas achetable — rupture de stock comprise. Purement déclaratif : ne
+ *    dépend d'aucun script, donc fonctionne y compris sur les thèmes qui
+ *    n'émettent pas l'événement `show_variation`.
+ */
+.woocommerce-variation-add-to-cart-disabled {
+	display: none !important;
+}
+
+/*
+ * 2. Le marquage posé par notre script, d'après ce que le serveur a réellement
+ *    constaté. Rattrape les thèmes qui redessinent le bloc sans reprendre la
+ *    classe de WooCommerce, et atteint aussi la quantité ou le bouton sortis de
+ *    leur conteneur d'origine.
+ */
 .ebisn-hidden {
 	display: none !important;
 }

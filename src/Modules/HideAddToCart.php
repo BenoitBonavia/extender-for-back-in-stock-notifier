@@ -18,13 +18,22 @@ defined( 'ABSPATH' ) || exit;
  * Afficher les deux n'a pas de sens : on ne peut pas à la fois commander un
  * produit et demander à être prévenu de son retour.
  *
- * La règle appliquée est littéralement celle-là — « une alerte est proposée,
- * donc pas de panier » — et non « le produit est en rupture ». La nuance
- * compte : l'extension hôte n'affiche pas son formulaire dans tous les cas de
- * rupture, et l'affiche parfois hors rupture. Ses conditions sont au nombre
- * d'une dizaine (catégories, étiquettes, prix, réassort, visiteurs connectés ou
- * non, produits exclus…), et les redupliquer garantissait de diverger tôt ou
- * tard. On lit donc ce qu'elle a RÉELLEMENT produit.
+ * Deux mécanismes complémentaires, parce qu'aucun ne suffit seul :
+ *
+ * 1. Une règle de style sur `woocommerce-variation-add-to-cart-disabled`, la
+ *    classe que WooCommerce pose dès qu'une déclinaison n'est pas achetable.
+ *    Purement déclarative, elle ne dépend d'aucun script — donc fonctionne même
+ *    sur les thèmes qui n'émettent pas l'événement `show_variation`.
+ * 2. Un drapeau posé côté serveur d'après le balisage RÉELLEMENT produit par
+ *    l'extension hôte, appliqué par un script. Il rattrape les thèmes qui
+ *    redessinent le bloc sans reprendre la classe de WooCommerce, et atteint
+ *    la quantité ou le bouton sortis de leur conteneur d'origine.
+ *
+ * Le second mécanisme reste le plus juste : l'hôte n'affiche pas son formulaire
+ * dans tous les cas de rupture, et l'affiche parfois hors rupture. Ses
+ * conditions sont au nombre d'une dizaine (catégories, étiquettes, prix,
+ * réassort, visiteurs connectés ou non, produits exclus…) et les redupliquer
+ * garantissait de diverger tôt ou tard.
  *
  * Désactivé par défaut : le module modifie une page publique, ce qu'aucune mise
  * à jour ne devrait faire sans qu'on l'ait demandé.
