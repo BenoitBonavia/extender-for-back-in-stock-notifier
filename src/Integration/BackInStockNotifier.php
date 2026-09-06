@@ -200,6 +200,9 @@ final class BackInStockNotifier {
 	/** `( int $product_id, int $variation_id )` — sous le champ e-mail du formulaire. */
 	public const HOOK_AFTER_EMAIL_FIELD = 'cwg_instock_after_email_field';
 
+	/** `( int $product_id, int $variation_id )` — sous le bouton d'inscription. */
+	public const HOOK_AFTER_SUBMIT_BUTTON = 'cwginstock_after_submit_button';
+
 	/**
 	 * `( bool $display, WC_Product $product, WC_Product_Variation|array $variation )`.
 	 *

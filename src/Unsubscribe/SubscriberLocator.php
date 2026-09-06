@@ -157,6 +157,98 @@ final class SubscriberLocator {
 	}
 
 	/**
+	 * Décrit, en clair, pourquoi le visiteur est reconnu — ou ne l'est pas.
+	 *
+	 * Destiné au diagnostic : sans cela, un formulaire d'inscription qui reste
+	 * affiché ne dit pas si le visiteur n'a simplement aucune demande en cours,
+	 * ou si quelque chose l'empêche d'être reconnu.
+	 *
+	 * @param int $subscribed_id Produit ou variation affiché.
+	 *
+	 * @return string
+	 */
+	public function explain( int $subscribed_id ): string {
+		$parts = array();
+
+		$user_id = get_current_user_id();
+
+		if ( $user_id > 0 ) {
+			$email = $this->current_user_email();
+
+			$parts[] = sprintf(
+				/* translators: 1: identifiant du compte, 2: adresse du compte. */
+				__( 'connecté (compte #%1$d, %2$s)', 'extender-for-back-in-stock-notifier' ),
+				$user_id,
+				'' !== $email ? $email : __( 'sans adresse', 'extender-for-back-in-stock-notifier' )
+			);
+		} else {
+			$parts[] = __( 'non connecté', 'extender-for-back-in-stock-notifier' );
+		}
+
+		$parts[] = '' !== VisitorCookie::current()
+			? __( 'cookie présent', 'extender-for-back-in-stock-notifier' )
+			: __( 'aucun cookie', 'extender-for-back-in-stock-notifier' );
+
+		$found = $this->find_for_current_visitor( $subscribed_id );
+		$total = $this->count_all_for( $subscribed_id );
+
+		$parts[] = sprintf(
+			/* translators: 1: identifiant produit, 2: demandes reconnues, 3: demandes en base. */
+			__( 'produit #%1$d : %2$d demande(s) reconnue(s) sur %3$d en cours', 'extender-for-back-in-stock-notifier' ),
+			$subscribed_id,
+			count( $found ),
+			$total
+		);
+
+		if ( empty( $found ) && $total > 0 ) {
+			$parts[] = __( 'ces demandes appartiennent à quelqu’un d’autre, ou ont été créées en invité sans cookie — seul le lien e-mail les atteint', 'extender-for-back-in-stock-notifier' );
+		}
+
+		if ( 0 === $total ) {
+			$parts[] = __( 'aucune demande en cours sur ce produit', 'extender-for-back-in-stock-notifier' );
+		}
+
+		return implode( ' · ', $parts );
+	}
+
+	/**
+	 * Nombre de demandes en cours sur un produit, tous visiteurs confondus.
+	 *
+	 * @param int $subscribed_id Produit ou variation.
+	 *
+	 * @return int
+	 */
+	private function count_all_for( int $subscribed_id ): int {
+		global $wpdb;
+
+		$statuses = self::active_statuses();
+
+		if ( empty( $statuses ) ) {
+			return 0;
+		}
+
+		$sql = "SELECT COUNT(*)
+				  FROM {$wpdb->posts} p
+				 INNER JOIN {$wpdb->postmeta} pid
+						 ON pid.post_id = p.ID
+						AND pid.meta_key = %s
+				 WHERE p.post_type = %s
+				   AND pid.meta_value = %d
+				   AND p.post_status IN ( " . implode( ', ', array_fill( 0, count( $statuses ), '%s' ) ) . ' )';
+
+		$values = array_merge(
+			array( Host::META_PID, Host::SUBSCRIBER_TYPE, $subscribed_id ),
+			$statuses
+		);
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- requête assemblée avec des marqueurs, puis passée à prepare() ; affichage de diagnostic réservé aux gestionnaires.
+		$count = $wpdb->get_var( $wpdb->prepare( $sql, $values ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		return (int) $count;
+	}
+
+	/**
 	 * Le visiteur a-t-il au moins une inscription, tous produits confondus ?
 	 *
 	 * Résultat mémorisé pour la durée de la requête : l'appel se répète autant

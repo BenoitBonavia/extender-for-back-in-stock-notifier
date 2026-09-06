@@ -133,6 +133,14 @@ final class SettingsFields extends \WC_Settings_Page {
 				'css'     => 'width:100px;',
 			),
 			array(
+				'title'    => __( 'Aide au diagnostic', 'extender-for-back-in-stock-notifier' ),
+				'desc'     => __( 'Expliquer sous le formulaire pourquoi le bouton ne s’affiche pas.', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Note visible uniquement des personnes pouvant gérer la boutique. Elle indique si le visiteur est reconnu, s’il a un cookie, et combien de demandes existent sur le produit affiché.', 'extender-for-back-in-stock-notifier' ),
+				'id'       => Settings::PREFIX . 'unsubscribe_hint',
+				'type'     => 'checkbox',
+				'default'  => 'yes',
+			),
+			array(
 				'title'    => __( 'Lien dans les e-mails', 'extender-for-back-in-stock-notifier' ),
 				'desc'     => __( 'Fournir un lien de désabonnement aux gabarits d’e-mail.', 'extender-for-back-in-stock-notifier' ),
 				'desc_tip' => __( 'Insérez {unsubscribe_url} ou {cwginstock_unsubscribe} dans vos gabarits. C’est le seul moyen fiable de se désabonner pour une personne sans compte.', 'extender-for-back-in-stock-notifier' ),

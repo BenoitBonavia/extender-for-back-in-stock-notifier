@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.4.2
+Stable tag: 0.4.3
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -99,6 +99,11 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.4.3 =
+* Une note de diagnostic apparaît sous le formulaire d'inscription, visible des seules
+  personnes pouvant gérer la boutique : elle indique si le visiteur est reconnu, s'il a un
+  cookie, et combien de demandes existent sur le produit affiché. Désactivable.
 
 = 0.4.2 =
 * Le bouton de désabonnement apparaît désormais aussi pour un client connecté dont
@@ -196,6 +201,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.4.3 =
+Ajoute une aide au diagnostic du bouton de désabonnement.
 
 = 0.4.2 =
 Améliore la reconnaissance des inscrits pour le bouton de désabonnement.

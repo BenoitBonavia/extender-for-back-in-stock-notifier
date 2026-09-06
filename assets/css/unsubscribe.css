@@ -31,3 +31,14 @@
 .ebisn-unsubscribe[data-state="unsubscribed"] .ebisn-unsubscribe__state {
 	opacity: 0.75;
 }
+
+/* Note de diagnostic, visible des seuls gestionnaires de la boutique. */
+.ebisn-unsubscribe__hint {
+	margin: 0.75em 0 0;
+	padding: 0.5em 0.75em;
+	border-left: 3px solid rgba( 128, 128, 128, 0.4 );
+	background: rgba( 128, 128, 128, 0.06 );
+	font-size: 0.8em;
+	line-height: 1.5;
+	opacity: 0.85;
+}

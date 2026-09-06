@@ -87,6 +87,39 @@ final class ProductForm {
 
 		// Rattache toute nouvelle inscription au navigateur qui l'a créée.
 		add_action( Host::HOOK_AFTER_INSERT_SUBSCRIBER, array( $this, 'tag_visitor' ), 5, 1 );
+
+		if ( Settings::get_bool( 'unsubscribe_hint', true ) ) {
+			add_action( Host::HOOK_AFTER_SUBMIT_BUTTON, array( $this, 'render_hint' ), 99, 2 );
+		}
+	}
+
+	/**
+	 * Explique aux administrateurs pourquoi le bouton ne s'affiche pas.
+	 *
+	 * Le formulaire d'inscription reste visible quand personne n'a été reconnu,
+	 * sans qu'aucune indication ne distingue « ce visiteur n'est pas inscrit »
+	 * d'un dysfonctionnement. Cette note lève l'ambiguïté, et n'est visible que
+	 * des personnes habilitées à gérer la boutique.
+	 *
+	 * @param int $product_id   Produit affiché.
+	 * @param int $variation_id Déclinaison affichée, `0` si aucune.
+	 */
+	public function render_hint( $product_id, $variation_id = 0 ): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			return;
+		}
+
+		$target = (int) $variation_id > 0 ? (int) $variation_id : (int) $product_id;
+
+		if ( $target <= 0 ) {
+			return;
+		}
+
+		printf(
+			'<p class="ebisn-unsubscribe__hint"><strong>%1$s</strong> %2$s</p>',
+			esc_html__( 'Extender — visible par vous seul·e :', 'extender-for-back-in-stock-notifier' ),
+			esc_html( $this->locator->explain( $target ) )
+		);
 	}
 
 	/**
