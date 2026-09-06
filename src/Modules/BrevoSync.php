@@ -76,6 +76,16 @@ final class BrevoSync extends AbstractModule {
 	/**
 	 * {@inheritDoc}
 	 */
+	public function get_description(): string {
+		return __(
+			'Pousse vers une liste Brevo l’adresse de chaque personne s’inscrivant à une alerte, avec des attributs décrivant l’ensemble des produits qu’elle attend. Nécessite l’extension Brevo, ou une clé d’API saisie dans les réglages, et une liste de destination. Ce module envoie des données personnelles à un service externe : une case de consentement peut être ajoutée au formulaire, et un rattrapage des inscrits existants est proposé — jamais lancé sans votre accord.',
+			'extender-for-back-in-stock-notifier'
+		);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public function get_title(): string {
 		return __( 'Synchroniser les inscrits vers Brevo', 'extender-for-back-in-stock-notifier' );
 	}

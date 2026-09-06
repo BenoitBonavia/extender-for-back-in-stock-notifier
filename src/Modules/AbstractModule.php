@@ -54,6 +54,16 @@ abstract class AbstractModule implements ModuleInterface {
 
 	/**
 	 * {@inheritDoc}
+	 *
+	 * Vide par défaut : un module qui n'explique rien n'affiche rien, plutôt
+	 * qu'un texte générique qui n'apprendrait rien à personne.
+	 */
+	public function get_description(): string {
+		return '';
+	}
+
+	/**
+	 * {@inheritDoc}
 	 */
 	public function is_enabled_by_default(): bool {
 		return $this->enabled_by_default;

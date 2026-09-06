@@ -54,7 +54,12 @@ final class Stats {
 		if ( ! $refresh ) {
 			$cached = get_transient( self::TRANSIENT );
 
-			if ( is_array( $cached ) ) {
+			/*
+			 * `converted` n'existe que depuis le passage du taux de conversion à
+			 * un dénominateur historique : sa présence sert de marqueur de format
+			 * et fait recalculer un cache écrit par une version antérieure.
+			 */
+			if ( is_array( $cached ) && isset( $cached['converted'] ) ) {
 				return $cached;
 			}
 		}
@@ -91,13 +96,11 @@ final class Stats {
 		$notified  = self::catalogue_value( array( Host::STATUS_MAILSENT ) );
 		$recovered = self::recovered_revenue();
 
-		/*
-		 * Le dénominateur ne retient que les inscrits ayant reçu l'alerte : ceux
-		 * qui attendent encore n'ont pas eu l'occasion de commander, les compter
-		 * écraserait le taux sans rien dire de la performance des alertes.
-		 */
-		$opportunity = (int) $recovered['subs'] + (int) $notified['subs'];
-		$rate        = $opportunity > 0 ? ( (int) $recovered['subs'] / $opportunity ) * 100 : 0.0;
+		$funnel = self::notified_funnel();
+
+		$opportunity = $funnel['total'];
+		$converted   = $funnel['converted'];
+		$rate        = $opportunity > 0 ? ( $converted / $opportunity ) * 100 : 0.0;
 
 		return array(
 			'pending'     => $pending,
@@ -105,7 +108,58 @@ final class Stats {
 			'recovered'   => $recovered,
 			'rate'        => $rate,
 			'opportunity' => $opportunity,
+			'converted'   => $converted,
 			'computed_at' => time(),
+		);
+	}
+
+	/**
+	 * Inscriptions ayant reçu au moins une alerte, et part convertie.
+	 *
+	 * Le taux ne se lit pas sur le statut courant, mais sur un fait qui ne se
+	 * défait pas : cette personne a-t-elle reçu une alerte ? `cwginstock_mail_on`
+	 * porte l'horodatage du dernier envoi et survit à tous les changements de
+	 * statut — désabonnement, conversion, et remise en attente par le module de
+	 * renotification. Compter les « Alerte envoyée » du moment ferait remonter le
+	 * taux à chaque rupture, sans qu'une seule commande ait été passée.
+	 *
+	 * Une inscription jamais notifiée n'entre dans aucun des deux termes : elle
+	 * n'a pas encore eu l'occasion de commander.
+	 *
+	 * @return array{total:int, converted:int}
+	 */
+	private static function notified_funnel(): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- résultat mis en cache par l'appelant.
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT COUNT(*) AS total,
+						SUM( CASE WHEN p.post_status = %s THEN 1 ELSE 0 END ) AS converted
+				   FROM {$wpdb->posts} p
+				  INNER JOIN {$wpdb->postmeta} m
+						  ON m.post_id = p.ID
+						 AND m.meta_key = %s
+				  WHERE p.post_type = %s
+					AND p.post_status NOT IN ( 'trash', 'auto-draft' )
+					AND m.meta_value <> ''",
+				Host::STATUS_CONVERTED,
+				Host::META_MAIL_ON,
+				Host::SUBSCRIBER_TYPE
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( ! $row ) {
+			return array(
+				'total'     => 0,
+				'converted' => 0,
+			);
+		}
+
+		return array(
+			'total'     => (int) $row->total,
+			'converted' => (int) $row->converted,
 		);
 	}
 

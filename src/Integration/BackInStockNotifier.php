@@ -227,6 +227,20 @@ final class BackInStockNotifier {
 	 */
 	public const HOOK_EMAIL_PLACEHOLDERS = 'cwginstock_email_placeholders';
 
+	/**
+	 * `( int $id, string $stock_status, WC_Product|string $product )`.
+	 *
+	 * Déclenchée à CHAQUE changement de statut de stock, ruptures comprises :
+	 * l'hôte ne filtre sur « instock » qu'après l'avoir émise. C'est donc le
+	 * seul point où observer une remise en rupture. Elle est également émise
+	 * par sa couche de compatibilité avec les stocks tiers, ce qu'un branchement
+	 * direct sur les hooks de WooCommerce ne couvrirait pas.
+	 */
+	public const HOOK_BEFORE_TRIGGER_STATUS = 'cwginstock_before_trigger_status';
+
+	/** Statut de stock d'un produit indisponible, tel que WooCommerce le nomme. */
+	public const STOCK_OUT = 'outofstock';
+
 	/*
 	 * ---------------------------------------------------------------------
 	 * Réglages de l'extension hôte

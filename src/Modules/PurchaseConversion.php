@@ -66,6 +66,16 @@ final class PurchaseConversion extends AbstractModule {
 	/**
 	 * {@inheritDoc}
 	 */
+	public function get_description(): string {
+		return __(
+			'L’extension hôte déclare un statut « Purchased » mais ne le pose jamais dans sa version gratuite. Ce module fournit le déclencheur manquant : dès qu’une personne commande le produit qu’elle attendait, son inscription y bascule. La détection se fait à chaque commande, et un rattrapage rejoue tout l’historique au premier démarrage. Une conversion est annulée si la commande est remboursée ou annulée. Ce module écrit dans les données de l’extension hôte : il modifie le statut des inscriptions, en mémorisant le précédent pour rester réversible.',
+			'extender-for-back-in-stock-notifier'
+		);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public function get_title(): string {
 		return __( 'Marquer « Purchased » les inscrits qui ont commandé', 'extender-for-back-in-stock-notifier' );
 	}

@@ -31,6 +31,16 @@ final class ConversionStats extends AbstractModule {
 	/**
 	 * {@inheritDoc}
 	 */
+	public function get_description(): string {
+		return __(
+			'Affiche au-dessus de la liste des inscrits la valeur des demandes en attente, celle qui n’a pas été récupérée, le chiffre d’affaires effectivement récupéré selon deux méthodes d’attribution, et le taux de conversion. Ce dernier ne compte que les personnes ayant réellement reçu une alerte : quelqu’un qui attend encore n’a pas eu l’occasion de commander. Lecture seule : aucune donnée n’est modifiée.',
+			'extender-for-back-in-stock-notifier'
+		);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public function get_title(): string {
 		return __( 'Afficher la valeur des listes d’attente', 'extender-for-back-in-stock-notifier' );
 	}

@@ -119,6 +119,7 @@ final class Plugin {
 			array(
 				\EBISN\Modules\PurchaseConversion::class,
 				\EBISN\Modules\ConversionStats::class,
+				\EBISN\Modules\Renotify::class,
 				\EBISN\Modules\SizeMatrix::class,
 				\EBISN\Modules\Unsubscribe::class,
 				\EBISN\Modules\HideAddToCart::class,

@@ -170,7 +170,7 @@ final class StatsBanner {
 			. esc_html__( 'Valeur des listes d’attente', 'extender-for-back-in-stock-notifier' )
 			. '</h2>'
 			. '<ul class="ebisn-stats__grid">' . implode( '', $cards ) . '</ul>'
-			. $this->rate_row( $rate, (int) $recovered['subs'], (int) $stats['opportunity'] )
+			. $this->rate_row( $rate, (int) $stats['converted'], (int) $stats['opportunity'] )
 			. $this->footnotes( $stats )
 			. '</div>';
 	}
@@ -224,8 +224,8 @@ final class StatsBanner {
 	 * par l'écran « Santé du site » de WordPress.
 	 *
 	 * @param float $rate        Taux, en pourcentage.
-	 * @param int   $converted   Nombre de conversions.
-	 * @param int   $opportunity Nombre d'inscrits ayant pu commander.
+	 * @param int   $converted   Conversions parmi les inscrits notifiés.
+	 * @param int   $opportunity Inscrits ayant reçu au moins une alerte.
 	 *
 	 * @return string
 	 */
@@ -247,8 +247,8 @@ final class StatsBanner {
 			// transtypage suit LC_NUMERIC et produirait une largeur invalide.
 			esc_attr( number_format( $width, 2, '.', '' ) ),
 			sprintf(
-				/* translators: 1: nombre de commandes, 2: nombre d'inscrits notifiés. */
-				esc_html__( '%1$s commande(s) sur %2$s inscrit(s) notifié(s)', 'extender-for-back-in-stock-notifier' ),
+				/* translators: 1: nombre de conversions, 2: nombre d'inscrits notifiés. */
+				esc_html__( '%1$s commande(s) sur %2$s inscrit(s) ayant reçu une alerte', 'extender-for-back-in-stock-notifier' ),
 				esc_html( number_format_i18n( $converted ) ),
 				esc_html( number_format_i18n( $opportunity ) )
 			)
@@ -299,7 +299,17 @@ final class StatsBanner {
 			);
 		}
 
-		$notes[] = esc_html__( 'taux calculé sur les seuls inscrits notifiés', 'extender-for-back-in-stock-notifier' );
+		$unnotified = (int) $stats['recovered']['subs'] - (int) $stats['converted'];
+
+		if ( $unnotified > 0 ) {
+			$notes[] = sprintf(
+				/* translators: %s: nombre de conversions. */
+				esc_html__( '%s conversion(s) sans alerte préalable, hors taux', 'extender-for-back-in-stock-notifier' ),
+				esc_html( number_format_i18n( $unnotified ) )
+			);
+		}
+
+		$notes[] = esc_html__( 'taux calculé sur les inscrits ayant reçu une alerte', 'extender-for-back-in-stock-notifier' );
 
 		$refresh = sprintf(
 			'<a href="%1$s" class="ebisn-stats__refresh">%2$s</a>',

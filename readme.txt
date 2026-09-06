@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.5.2
+Stable tag: 0.6.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -30,6 +30,11 @@ Modules disponibles :
 * **Valeur des listes d'attente.** Un bandeau au-dessus de la liste des inscrits : valeur en
   attente de réassort, valeur non récupérée, chiffre d'affaires récupéré selon deux
   attributions, et taux de conversion calculé sur les seuls inscrits notifiés.
+* **Renotification** (désactivé par défaut). Une alerte de retour en stock ne sert normalement
+  qu'une fois : si le produit repart avant que la personne n'ait commandé, elle ne sera plus
+  jamais prévenue. Ce module la remet en attente dès que le produit redevient indisponible, et
+  recommence à chaque cycle jusqu'à l'achat ou le désabonnement. Un rattrapage est lancé une
+  fois à l'activation, sur les inscriptions déjà bloquées dans cet état.
 * **Demandes par taille.** Un écran croisant les demandes de retour en stock par produit et
   par déclinaison : de quelles tailles avez-vous besoin, et en quelle quantité ? Recherche,
   tri, pagination et export CSV. L'attribut porté en colonnes est détecté automatiquement,
@@ -102,6 +107,23 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.6.0 =
+* Nouveau module « Renotification », désactivé par défaut : une inscription déjà notifiée
+  repart en attente dès que son produit repasse en rupture, et le cycle recommence jusqu'à
+  l'achat ou le désabonnement. Le nombre d'alertes par inscription est plafonnable, et un
+  rattrapage reprend les inscriptions déjà bloquées sur un produit indisponible.
+* Le module reste en veille tant que l'option « Keep Subscription Entry to Subscribed Status »
+  de l'extension hôte est cochée : elle couvre le même besoin plus grossièrement, en empêchant
+  toute inscription d'atteindre « Alerte envoyée ». Un avertissement le signale si les deux
+  sont activés.
+* Le taux de conversion se calcule désormais sur les inscriptions ayant reçu au moins une
+  alerte, et non sur leur statut du moment : il ne remonte plus artificiellement quand une
+  inscription notifiée repart en attente. Les chiffres affichés changent légèrement, même sans
+  activer le nouveau module — les inscriptions notifiées puis désabonnées, que l'ancien calcul
+  oubliait, sont désormais comptées.
+* Chaque module est décrit dans la page de réglages : ce qu'il fait, ce qu'il change pour le
+  client, et ses effets de bord.
 
 = 0.5.2 =
 * Le masquage s'applique aussi par une simple règle de style sur la classe que WooCommerce

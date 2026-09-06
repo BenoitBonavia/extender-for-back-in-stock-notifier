@@ -30,6 +30,18 @@ interface ModuleInterface {
 	public function get_title(): string;
 
 	/**
+	 * Explication affichée sous la case d'activation.
+	 *
+	 * Doit décrire ce que le module fait, ce que cela change côté client, et ses
+	 * effets de bord — envois d'e-mails, écriture dans les données de
+	 * l'extension hôte, dépendance à un service externe. C'est le seul endroit
+	 * où le marchand peut mesurer ce qu'il active.
+	 *
+	 * @return string
+	 */
+	public function get_description(): string;
+
+	/**
 	 * Indique si le module doit être chargé.
 	 *
 	 * @return bool

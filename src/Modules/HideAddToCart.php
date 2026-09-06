@@ -69,6 +69,16 @@ final class HideAddToCart extends AbstractModule {
 	/**
 	 * {@inheritDoc}
 	 */
+	public function get_description(): string {
+		return __(
+			'Retire le sélecteur de quantité et le bouton d’ajout au panier là où une alerte de retour en stock est proposée : on ne peut pas à la fois commander un produit et demander à être prévenu de son retour. Ce module modifie l’affichage public de vos fiches produit.',
+			'extender-for-back-in-stock-notifier'
+		);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public function get_title(): string {
 		return __( 'Masquer l’ajout au panier quand une alerte est proposée', 'extender-for-back-in-stock-notifier' );
 	}

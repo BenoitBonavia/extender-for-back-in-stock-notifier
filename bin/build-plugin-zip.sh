@@ -142,6 +142,10 @@ if command -v unzip >/dev/null 2>&1; then
 		"$SLUG/src/Integration/BackInStockNotifier.php" \
 		"$SLUG/src/Admin/SettingsFields.php" \
 		"$SLUG/src/Admin/SettingsPage.php" \
+		"$SLUG/src/Modules/Renotify.php" \
+		"$SLUG/src/Renotify/RenotifyService.php" \
+		"$SLUG/src/Renotify/StockWatcher.php" \
+		"$SLUG/src/Renotify/Backfill.php" \
 		"$SLUG/assets/css/admin.css" \
 		"$SLUG/assets/js/admin.js" \
 		"$SLUG/assets/css/unsubscribe.css" \

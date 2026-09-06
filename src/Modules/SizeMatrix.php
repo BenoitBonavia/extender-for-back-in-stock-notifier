@@ -41,6 +41,16 @@ final class SizeMatrix extends AbstractModule {
 	/**
 	 * {@inheritDoc}
 	 */
+	public function get_description(): string {
+		return __(
+			'Ajoute un écran croisant les demandes de retour en stock par produit et par déclinaison, avec recherche, tri, export CSV et carte de chaleur. Il répond à une question que la liste des inscrits ne sait pas poser : de quelles tailles avez-vous besoin, et en quelle quantité ? L’attribut porté en colonnes est détecté automatiquement et reste modifiable. Lecture seule : aucune donnée n’est modifiée.',
+			'extender-for-back-in-stock-notifier'
+		);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public function get_title(): string {
 		return __( 'Afficher les demandes par taille', 'extender-for-back-in-stock-notifier' );
 	}

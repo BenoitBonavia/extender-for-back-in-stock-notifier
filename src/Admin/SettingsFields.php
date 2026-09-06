@@ -16,6 +16,10 @@ use EBISN\Integration\Brevo;
 use EBISN\Matrix\DemandMatrix;
 use EBISN\Modules\ModuleInterface;
 use EBISN\Plugin;
+use EBISN\Renotify\Backfill as RenotifyBackfill;
+use EBISN\Renotify\RenotifyService;
+use EBISN\Renotify\SubscriptionQuery;
+use EBISN\Support\JobState;
 use EBISN\Support\Settings;
 use EBISN\Unsubscribe\VisitorCookie;
 
@@ -43,6 +47,11 @@ final class SettingsFields extends \WC_Settings_Page {
 	private const REFRESH_ARG = 'ebisn_refresh_brevo';
 
 	/**
+	 * Paramètre d'URL demandant la relance du rattrapage des renotifications.
+	 */
+	private const RESTART_ARG = 'ebisn_restart_renotify';
+
+	/**
 	 * Constructeur.
 	 */
 	public function __construct() {
@@ -62,6 +71,7 @@ final class SettingsFields extends \WC_Settings_Page {
 			''            => __( 'Général', 'extender-for-back-in-stock-notifier' ),
 			'modules'     => __( 'Modules', 'extender-for-back-in-stock-notifier' ),
 			'conversion'  => __( 'Conversion', 'extender-for-back-in-stock-notifier' ),
+			'renotify'    => __( 'Renotification', 'extender-for-back-in-stock-notifier' ),
 			'matrix'      => __( 'Demandes par taille', 'extender-for-back-in-stock-notifier' ),
 			'unsubscribe' => __( 'Désabonnement', 'extender-for-back-in-stock-notifier' ),
 			'brevo'       => __( 'Brevo', 'extender-for-back-in-stock-notifier' ),
@@ -333,6 +343,135 @@ final class SettingsFields extends \WC_Settings_Page {
 				'type' => 'sectionend',
 				'id'   => Settings::PREFIX . 'conversion_options',
 			),
+		);
+	}
+
+	/**
+	 * Champs de la section « Renotification ».
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	protected function get_settings_for_renotify_section(): array {
+		if ( $this->restart_requested() ) {
+			( new RenotifyBackfill( new RenotifyService(), new SubscriptionQuery() ) )->restart();
+
+			\WC_Admin_Settings::add_message(
+				__( 'Rattrapage des renotifications relancé. Il progresse en arrière-plan.', 'extender-for-back-in-stock-notifier' )
+			);
+		}
+
+		$settings = array(
+			array(
+				'title' => __( 'Renotification', 'extender-for-back-in-stock-notifier' ),
+				'type'  => 'title',
+				'desc'  => $this->renotify_intro(),
+				'id'    => Settings::PREFIX . 'renotify_options',
+			),
+			array(
+				'title'    => __( 'Alertes maximales par inscription', 'extender-for-back-in-stock-notifier' ),
+				'desc'     => __( 'remises en attente', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Au-delà, l’inscription reste en « Alerte envoyée » et n’est plus reprise. 0 lève la limite : la personne est prévenue à chaque retour en stock jusqu’à ce qu’elle achète ou se désabonne.', 'extender-for-back-in-stock-notifier' ),
+				'id'       => Settings::PREFIX . 'renotify_max_cycles',
+				'type'     => 'number',
+				'default'  => 0,
+				'css'      => 'width:100px;',
+			),
+			array(
+				'title' => __( 'Rattrapage', 'extender-for-back-in-stock-notifier' ),
+				'type'  => 'info',
+				'text'  => $this->renotify_backfill_text(),
+				'id'    => Settings::PREFIX . 'renotify_backfill_info',
+			),
+			array(
+				'type' => 'sectionend',
+				'id'   => Settings::PREFIX . 'renotify_options',
+			),
+		);
+
+		return $settings;
+	}
+
+	/**
+	 * Texte d'introduction de la section « Renotification ».
+	 *
+	 * @return string
+	 */
+	private function renotify_intro(): string {
+		if ( BackInStockNotifier::keeps_subscribed_after_notification() ) {
+			return '<strong style="color:#b32d2e">' . sprintf(
+				/* translators: %s: nom du réglage de l'extension hôte. */
+				esc_html__( 'Le réglage %s de l’extension hôte est actif : il empêche toute inscription d’atteindre « Alerte envoyée », ce qui couvre le besoin à sa manière mais rend le taux de conversion inexploitable. Tant qu’il est coché, ce module reste en veille et rien de ce qui suit ne s’applique.', 'extender-for-back-in-stock-notifier' ),
+				'<code>' . esc_html__( 'Keep Subscription Entry to Subscribed Status even Instock Email Sent', 'extender-for-back-in-stock-notifier' ) . '</code>'
+			) . '</strong>';
+		}
+
+		return esc_html__(
+			'Une inscription déjà notifiée repart en attente dès que le produit redevient indisponible, et le cycle recommence jusqu’à l’achat ou le désabonnement. Les inscriptions converties ou désabonnées ne sont jamais reprises.',
+			'extender-for-back-in-stock-notifier'
+		);
+	}
+
+	/**
+	 * État du rattrapage, et bouton de relance.
+	 *
+	 * @return string
+	 */
+	private function renotify_backfill_text(): string {
+		$state  = JobState::load( RenotifyBackfill::JOB_ID );
+		$button = sprintf(
+			'<a href="%1$s" class="button">%2$s</a>',
+			esc_url( wp_nonce_url( add_query_arg( self::RESTART_ARG, '1' ), self::RESTART_ARG ) ),
+			esc_html__( 'Relancer le rattrapage', 'extender-for-back-in-stock-notifier' )
+		);
+
+		if ( JobState::STATUS_RUNNING === $state->status() ) {
+			return sprintf(
+				/* translators: 1: inscriptions examinées, 2: inscriptions remises en attente. */
+				esc_html__( 'En cours : %1$s inscription(s) examinée(s), %2$s remise(s) en attente.', 'extender-for-back-in-stock-notifier' ),
+				'<strong>' . esc_html( number_format_i18n( $state->processed() ) ) . '</strong>',
+				'<strong>' . esc_html( number_format_i18n( $state->affected() ) ) . '</strong>'
+			);
+		}
+
+		$pending = ( new SubscriptionQuery() )->count_out_of_stock();
+
+		$summary = 0 === $pending
+			? esc_html__( 'Aucune inscription notifiée ne porte aujourd’hui sur un produit indisponible.', 'extender-for-back-in-stock-notifier' )
+			: sprintf(
+				/* translators: %s: nombre d'inscriptions concernées. */
+				esc_html__( 'Environ %s inscription(s) notifiée(s) portent sur un produit aujourd’hui indisponible : les relancer les fera toutes prévenir au prochain réassort de leur produit.', 'extender-for-back-in-stock-notifier' ),
+				'<strong>' . esc_html( number_format_i18n( $pending ) ) . '</strong>'
+			);
+
+		if ( JobState::STATUS_DONE === $state->status() ) {
+			$summary = sprintf(
+				/* translators: %s: nombre d'inscriptions remises en attente. */
+				esc_html__( 'Terminé : %s inscription(s) remise(s) en attente.', 'extender-for-back-in-stock-notifier' ),
+				'<strong>' . esc_html( number_format_i18n( $state->affected() ) ) . '</strong>'
+			) . ' ' . $summary;
+		}
+
+		return $summary . '<br>' . $button;
+	}
+
+	/**
+	 * Une relance du rattrapage a-t-elle été demandée ?
+	 *
+	 * @return bool
+	 */
+	private function restart_requested(): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- le jeton est vérifié juste après.
+		if ( ! isset( $_GET[ self::RESTART_ARG ], $_GET['_wpnonce'] ) ) {
+			return false;
+		}
+
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			return false;
+		}
+
+		return (bool) wp_verify_nonce(
+			sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ),
+			self::RESTART_ARG
 		);
 	}
 
@@ -709,6 +848,25 @@ final class SettingsFields extends \WC_Settings_Page {
 				'id'      => Settings::PREFIX . 'module_' . $module->get_id() . '_enabled',
 				'type'    => 'checkbox',
 				'default' => $module->is_enabled_by_default() ? 'yes' : 'no',
+			);
+
+			$description = $module->get_description();
+
+			if ( '' === $description ) {
+				continue;
+			}
+
+			/*
+			 * Une ligne à part plutôt que le `desc` de la case : celui-ci en est
+			 * l'étiquette cliquable, et y loger un paragraphe rendrait toute
+			 * l'explication cliquable. Le titre reste vide, la colonne de gauche
+			 * étant déjà occupée par celui de la case juste au-dessus.
+			 */
+			$settings[] = array(
+				'title' => '',
+				'type'  => 'info',
+				'text'  => '<span class="description">' . esc_html( $description ) . '</span>',
+				'id'    => Settings::PREFIX . 'module_' . $module->get_id() . '_description',
 			);
 		}
 

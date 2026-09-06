@@ -47,6 +47,16 @@ final class Unsubscribe extends AbstractModule {
 	/**
 	 * {@inheritDoc}
 	 */
+	public function get_description(): string {
+		return __(
+			'L’extension hôte enregistre un statut « Unsubscribed » et sait le poser depuis son administration, mais n’offre au client aucun moyen de s’en servir. Ce module remplace le formulaire d’inscription par un bouton de désabonnement pour qui est déjà inscrit, et met un lien signé à disposition des gabarits d’e-mail — seul recours fiable pour une personne sans compte. Un désabonnement reste annulable. Les visiteurs non connectés sont reconnus par un cookie ne contenant qu’un identifiant aléatoire, jamais leur adresse.',
+			'extender-for-back-in-stock-notifier'
+		);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public function get_title(): string {
 		return __( 'Permettre le désabonnement d’une alerte', 'extender-for-back-in-stock-notifier' );
 	}

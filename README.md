@@ -4,7 +4,7 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.5.2
+- **Version** : 0.6.0
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
   Back In Stock Notifier 7.0+ (relu sur 7.4.2)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
@@ -80,6 +80,11 @@ extender-for-back-in-stock-notifier/
     │   ├── VisitorCookie.php                Jeton opaque de navigateur
     │   ├── ProductForm.php                  Encart sur la fiche produit, point d'entrée AJAX
     │   └── EmailLink.php                    Lien signé des e-mails
+    ├── Renotify/                            Renotification à chaque nouvelle rupture
+    │   ├── RenotifyService.php              Remise en attente via l'API de l'hôte, comptage des cycles
+    │   ├── SubscriptionQuery.php            Inscriptions notifiées, par produit ou par curseur
+    │   ├── StockWatcher.php                 Écoute les ruptures, diffère le traitement
+    │   └── Backfill.php                     Rattrapage des inscriptions déjà bloquées
     ├── Migration/
     │   └── LegacyConversionMeta.php         Reprise des métadonnées des snippets WPCode
     ├── Modules/
@@ -87,6 +92,7 @@ extender-for-back-in-stock-notifier/
     │   ├── AbstractModule.php               Base : activation pilotée par option
     │   ├── PurchaseConversion.php           Module « Purchased »
     │   ├── ConversionStats.php              Module « indicateurs »
+    │   ├── Renotify.php                     Module « Renotification » (désactivé par défaut)
     │   ├── SizeMatrix.php                   Module « Demandes par taille »
     │   ├── Unsubscribe.php                  Module « Désabonnement »
     │   ├── HideAddToCart.php                Module « Masquer l'ajout au panier »
@@ -108,6 +114,7 @@ extender-for-back-in-stock-notifier/
 |---|---|---|---|
 | Marquer « Purchased » | `purchase_conversion` | oui | Fait passer une inscription au statut `cwg_converted` quand son titulaire commande le produit attendu, au fil de l'eau et sur tout l'historique. Annule la conversion en cas de remboursement ou d'annulation. |
 | Valeur des listes d'attente | `conversion_stats` | oui | Affiche au-dessus de la liste des inscrits la valeur en attente, le chiffre d'affaires récupéré et le taux de conversion. |
+| Renotification | `renotify` | **non** | Remet en attente une inscription déjà notifiée dès que son produit repasse en rupture, et recommence à chaque cycle jusqu'à l'achat ou le désabonnement. Reste en veille tant que l'option `keep_status_subscribed` de l'hôte est cochée. |
 | Demandes par taille | `size_matrix` | oui | Écran croisant les demandes par produit et par déclinaison, avec recherche, tri, pagination et export CSV. L'attribut porté en colonnes et les statuts comptés sont réglables. |
 | Désabonnement | `unsubscribe` | oui | Remplace le formulaire d'inscription par un bouton de désabonnement, et fournit un lien signé aux e-mails. Libellé et messages réglables. |
 | Masquer l'ajout au panier | `hide_add_to_cart` | **non** | Retire le sélecteur de quantité et le bouton d'ajout au panier là où une alerte de retour en stock est proposée. |
@@ -160,6 +167,8 @@ WooCommerce → État → Actions programmées.
 | `ebisn_brevo_sync_contact` | Synchronise une adresse vers Brevo |
 | `ebisn_brevo_backfill_step` | Une étape du rattrapage Brevo |
 | `ebisn_brevo_backfill_poll` | Vérifie l'issue d'un import Brevo |
+| `ebisn_renotify_product` | Remet en attente les inscrits d'un produit repassé en rupture |
+| `ebisn_renotify_backfill_step` | Une étape du rattrapage des renotifications |
 
 Les arguments passés sont toujours **scalaires** : `wp-cron.php` transmet les arguments
 d'un événement sans les réindexer, et une clé de chaîne devient un argument nommé en PHP 8 —
