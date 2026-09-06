@@ -74,18 +74,23 @@ final class Plugin {
 			return;
 		}
 
-		/*
-		 * WordPress n'exécute pas le hook d'activation lors d'une mise à jour :
-		 * les migrations doivent donc aussi être déclenchées depuis une requête
-		 * ordinaire. Le coût est d'une lecture d'option.
-		 */
-		Installer::maybe_upgrade();
-
 		if ( is_admin() ) {
 			( new Admin() )->register();
 		}
 
 		$this->register_modules();
+
+		/*
+		 * WordPress n'exécute pas le hook d'activation lors d'une mise à jour :
+		 * les migrations doivent donc aussi être déclenchées depuis une requête
+		 * ordinaire. Le coût est d'une lecture d'option.
+		 *
+		 * APRÈS l'enregistrement des modules, impérativement : ce sont eux qui
+		 * s'abonnent à `ebisn_upgrade` pour amorcer leurs traitements de fond.
+		 * Déclencher l'action avant les aurait laissés sans destinataire, et le
+		 * marqueur de version aurait été mis à jour sans que rien ne se passe.
+		 */
+		Installer::maybe_upgrade();
 
 		/**
 		 * Le plugin est prêt : tous les modules sont enregistrés.
@@ -109,7 +114,14 @@ final class Plugin {
 		 *
 		 * @param string[] $classes Noms de classes implémentant ModuleInterface.
 		 */
-		return (array) apply_filters( 'ebisn_module_classes', array() );
+		return (array) apply_filters(
+			'ebisn_module_classes',
+			array(
+				\EBISN\Modules\PurchaseConversion::class,
+				\EBISN\Modules\ConversionStats::class,
+				\EBISN\Modules\BrevoSync::class,
+			)
+		);
 	}
 
 	/**

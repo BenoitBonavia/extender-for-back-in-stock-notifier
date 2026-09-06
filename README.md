@@ -4,7 +4,7 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.1.0
+- **Version** : 0.2.0
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
   Back In Stock Notifier 7.0+ (relu sur 7.4.2)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
@@ -18,7 +18,7 @@ pas sans lui.
 extender-for-back-in-stock-notifier/
 ├── extender-for-back-in-stock-notifier.php  Fichier principal : en-tête, constantes, hooks d'amorçage
 ├── readme.txt                               Métadonnées au format WordPress.org (lues pour la fiche de mise à jour)
-├── uninstall.php                            Purge des options ebisn_* à la suppression
+├── uninstall.php                            Purge des données ebisn_* à la suppression (sur opt-in)
 ├── .gitattributes                           export-ignore : fichiers exclus des archives
 ├── .github/workflows/release.yml            Construit et publie l'archive sur push d'un tag v*
 ├── bin/build-plugin-zip.sh                  Construction reproductible de l'archive d'installation
@@ -38,16 +38,108 @@ extender-for-back-in-stock-notifier/
     ├── Requirements.php                     Vérification WooCommerce + plugin hôte
     ├── Installer.php                        Activation / désactivation / migrations
     ├── Integration/
-    │   └── BackInStockNotifier.php          Tout ce qu'on sait du plugin hôte
+    │   ├── BackInStockNotifier.php          Tout ce qu'on sait du plugin hôte
+    │   └── Brevo.php                        Tout ce qu'on sait des extensions Brevo
     ├── Admin/
     │   ├── Admin.php                        Hooks admin, assets, lien « Réglages »
-    │   └── SettingsTab.php                  WooCommerce → Réglages → Extender BIS
+    │   ├── SettingsTab.php                  WooCommerce → Réglages → Extender BIS
+    │   ├── StatsBanner.php                  Bandeau d'indicateurs sur la liste des inscrits
+    │   └── BrevoBackfillPage.php            Lancement et suivi du rattrapage Brevo
+    ├── Conversion/                          Détection d'achat et statut « Purchased »
+    │   ├── ConversionService.php            SEUL point d'écriture d'un statut d'inscription
+    │   ├── OrderMatcher.php                 Règles d'appariement, sans accès base
+    │   ├── SubscriptionRepository.php       Lectures d'inscriptions en SQL préparé
+    │   ├── OrderLookup.php                  Recherche de commandes (HPOS et stockage historique)
+    │   ├── RealtimeListener.php             Conversion au fil de l'eau et retours en arrière
+    │   ├── Backfill.php                     Rattrapage automatique sur l'historique
+    │   ├── NotificationSuppressor.php       Bloque l'alerte pour qui a déjà acheté
+    │   ├── Stats.php                        Calcul des indicateurs, mis en cache
+    │   └── MetaKeys.php                     Clés de métadonnées, actuelles et héritées
+    ├── Brevo/                               Synchronisation vers Brevo
+    │   ├── Client.php                       Transport HTTP
+    │   ├── Response.php                     Verdicts : succès, réessayable, définitif, authentification
+    │   ├── Contacts.php                     Contacts, imports, listes, attributs
+    │   ├── Lists.php                        Listes du compte, mises en cache
+    │   ├── ContactState.php                 Table de suivi, idempotence par empreinte
+    │   ├── PayloadBuilder.php               Attributs agrégés sur toutes les attentes d'une adresse
+    │   ├── AttributeInstaller.php           Déclaration des attributs chez Brevo
+    │   ├── SyncService.php                  Synchro au fil de l'eau, avec report exponentiel
+    │   ├── Backfill.php                     Rattrapage en masse, suivi des imports
+    │   └── Consent.php                      Case de consentement et preuve horodatée
+    ├── Migration/
+    │   └── LegacyConversionMeta.php         Reprise des métadonnées des snippets WPCode
     ├── Modules/
     │   ├── ModuleInterface.php              Contrat d'un module
-    │   └── AbstractModule.php               Base : activation pilotée par option
+    │   ├── AbstractModule.php               Base : activation pilotée par option
+    │   ├── PurchaseConversion.php           Module « Purchased »
+    │   ├── ConversionStats.php              Module « indicateurs »
+    │   └── BrevoSync.php                    Module « Brevo » (désactivé par défaut)
     └── Support/
         ├── Settings.php                     Lecture/écriture des options ebisn_*
-        └── Logger.php                       Journaux WooCommerce (source extender-bisn)
+        ├── Logger.php                       Journaux WooCommerce (source extender-bisn)
+        ├── Scheduler.php                    Unique point de contact avec Action Scheduler
+        ├── Lock.php                         Verrou atomique entre processus
+        ├── JobState.php                     État persistant d'un traitement par lots
+        ├── BatchJob.php                     Contrat d'un traitement par lots
+        ├── BatchRunner.php                  Moteur par lots : budget, curseur, chaînage
+        └── SnippetGuard.php                 Met un module en veille si son snippet tourne encore
+```
+
+## Modules
+
+| Module | Identifiant | Actif par défaut | Rôle |
+|---|---|---|---|
+| Marquer « Purchased » | `purchase_conversion` | oui | Fait passer une inscription au statut `cwg_converted` quand son titulaire commande le produit attendu, au fil de l'eau et sur tout l'historique. Annule la conversion en cas de remboursement ou d'annulation. |
+| Valeur des listes d'attente | `conversion_stats` | oui | Affiche au-dessus de la liste des inscrits la valeur en attente, le chiffre d'affaires récupéré et le taux de conversion. |
+| Synchronisation Brevo | `brevo_sync` | **non** | Pousse les adresses inscrites vers une liste Brevo. Dépend de l'extension Brevo (`mailin`) ou d'une clé d'API saisie manuellement. |
+
+### Dépendance optionnelle à Brevo
+
+Brevo n'est **pas** déclarée dans l'en-tête `Requires Plugins` : cela rendrait l'extension
+entière inactivable sans elle alors qu'un seul module la concerne. La détection se fait à
+l'exécution, avec trois sources de clé d'API dans cet ordre : l'option de l'extension Brevo,
+son nom en dur, puis une clé saisie dans les réglages.
+
+Attention : seule l'extension **Brevo** (slug `mailin`) détient une clé d'API v3. Le
+connecteur « Brevo for WooCommerce » n'en stocke plus depuis sa version 4 — un site n'ayant
+que celui-ci doit saisir sa clé manuellement.
+
+## Reprise depuis les snippets WPCode
+
+Le plugin remplace cinq snippets. La bascule est conçue pour être transparente :
+
+- **Mise en veille automatique.** Tant qu'un snippet remplacé est encore chargé, le module
+  correspondant ne s'accroche à rien et le signale dans le panneau Diagnostic. Sans cela, les
+  deux traiteraient les mêmes données en parallèle.
+- **Migration des métadonnées.** Les clés `mh_bisn_order_id` et `mh_bisn_converted_on` sont
+  reprises sous le préfixe `_ebisn_`, par lots, puis supprimées. Ces conversions héritées
+  sont marquées comme telles : les snippets n'enregistraient pas le statut d'origine, elles
+  ne peuvent donc pas être annulées.
+- **Marqueur de commande.** `_mh_bisn_converted` n'est plus lu ni écrit — l'idempotence vient
+  désormais d'une mise à jour conditionnelle du statut. Il est laissé en place, inerte : le
+  purger sur l'ensemble des commandes coûterait davantage que le bénéfice, et sous HPOS il
+  vit dans `wc_orders_meta`.
+- **Rattrapage Brevo.** Si l'option `mh_brevo_backfill_job` du snippet est trouvée en base
+  avec au moins un lot traité, le rattrapage est marqué comme déjà effectué et rien n'est
+  renvoyé.
+
+## Traitements de fond
+
+Tous passent par Action Scheduler, sous le groupe `ebisn`, visibles dans
+WooCommerce → État → Actions programmées.
+
+| Hook | Rôle |
+|---|---|
+| `ebisn_convert_order` | Traite une commande hors du tunnel de paiement |
+| `ebisn_purchase_backfill_step` | Une étape du rattrapage sur l'historique |
+| `ebisn_legacy_conversion_meta_step` | Une étape de la migration des métadonnées |
+| `ebisn_brevo_sync_contact` | Synchronise une adresse vers Brevo |
+| `ebisn_brevo_backfill_step` | Une étape du rattrapage Brevo |
+| `ebisn_brevo_backfill_poll` | Vérifie l'issue d'un import Brevo |
+
+Les arguments passés sont toujours **scalaires** : `wp-cron.php` transmet les arguments
+d'un événement sans les réindexer, et une clé de chaîne devient un argument nommé en PHP 8 —
+donc une erreur fatale qui interrompt l'intégralité du run cron.
 ```
 
 ## La règle qui structure tout : `Integration\BackInStockNotifier`

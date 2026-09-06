@@ -9,6 +9,12 @@
 	<exclude-pattern>/dist/*</exclude-pattern>
 	<!-- Bibliothèque tierce embarquée telle quelle : ne pas la reformater. -->
 	<exclude-pattern>/lib/*</exclude-pattern>
+	<!--
+		Déclarations destinées à l'analyse statique, jamais chargées à l'exécution.
+		Elles reproduisent des signatures tierces (Action Scheduler) qui ne peuvent
+		pas porter le préfixe du plugin, par définition.
+	-->
+	<exclude-pattern>/stubs/*</exclude-pattern>
 
 	<arg name="extensions" value="php"/>
 	<arg name="colors"/>
@@ -33,6 +39,15 @@
 		<properties>
 			<property name="text_domain" type="array">
 				<element value="extender-for-back-in-stock-notifier"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Capacité déclarée par WooCommerce, que le sniff ne peut pas connaître. -->
+	<rule ref="WordPress.WP.Capabilities">
+		<properties>
+			<property name="custom_capabilities" type="array">
+				<element value="manage_woocommerce"/>
 			</property>
 		</properties>
 	</rule>

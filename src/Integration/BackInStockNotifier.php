@@ -73,9 +73,152 @@ final class BackInStockNotifier {
 	public const ARRIVAL_TYPE = 'cwginstock_arrival';
 
 	/**
+	 * Identifiant d'écran de la liste des inscrits.
+	 */
+	public const LIST_SCREEN_ID = 'edit-cwginstocknotifier';
+
+	/**
+	 * Slug du menu de l'extension hôte, à passer en parent d'une sous-page.
+	 */
+	public const MENU_PARENT = 'edit.php?post_type=cwginstocknotifier';
+
+	/*
+	 * ---------------------------------------------------------------------
+	 * Statuts d'inscription
+	 *
+	 * Les six statuts réellement enregistrés par la version gratuite. Le
+	 * septième que l'on croise dans le code de l'hôte, `cwg_doubleoptin`, est
+	 * référencé mais JAMAIS enregistré : il appartient à un module payant.
+	 * Ne pas le supposer présent.
+	 * ---------------------------------------------------------------------
+	 */
+
+	/** Inscrit, en attente de réapprovisionnement. */
+	public const STATUS_SUBSCRIBED = 'cwg_subscribed';
+
+	/** Mis en file d'envoi. Posé en SQL direct : aucune transition n'est émise. */
+	public const STATUS_QUEUED = 'cwg_queued';
+
+	/** Alerte de retour en stock envoyée. */
+	public const STATUS_MAILSENT = 'cwg_mailsent';
+
+	/** Échec d'envoi de l'alerte. */
+	public const STATUS_MAILNOTSENT = 'cwg_mailnotsent';
+
+	/**
+	 * « Purchased ».
+	 *
+	 * Enregistré par l'hôte, mais aucun code de la version gratuite ne le pose :
+	 * il est réservé à un module payant. C'est ce vide que comble le module de
+	 * conversion de ce plugin.
+	 */
+	public const STATUS_CONVERTED = 'cwg_converted';
+
+	/** Désinscrit. Jamais reconverti par ce plugin. */
+	public const STATUS_UNSUBSCRIBED = 'cwg_unsubscribed';
+
+	/*
+	 * ---------------------------------------------------------------------
+	 * Métadonnées d'inscription
+	 *
+	 * Écrites par CWG_Instock_API::insert_data() sur les trois chemins de
+	 * création (AJAX, REST create, REST update). Les trois clés de produit
+	 * coexistent et n'ont pas le même sens : voir chaque constante.
+	 * ---------------------------------------------------------------------
+	 */
+
+	/** ID du produit PARENT, toujours — jamais celui d'une variation. */
+	public const META_PRODUCT_ID = 'cwginstock_product_id';
+
+	/** ID de la variation attendue, `0` pour un produit simple. */
+	public const META_VARIATION_ID = 'cwginstock_variation_id';
+
+	/**
+	 * Produit effectivement attendu : `variation_id` s'il y en a une, sinon
+	 * `product_id`. C'est la clé sur laquelle l'hôte résout `wc_get_product()`.
+	 */
+	public const META_PID = 'cwginstock_pid';
+
+	/**
+	 * Variation ayant déclenché la notification d'un inscrit « parent ».
+	 *
+	 * Posée par l'hôte quand `variable_any_variation_backinstock` est actif, et
+	 * prioritaire sur META_PID dans tout son code d'e-mail. Jamais nettoyée.
+	 */
+	public const META_BYPASS_PID = 'cwginstock_bypass_pid';
+
+	/** Adresse de l'inscrit. Également recopiée dans `post_title`. */
+	public const META_EMAIL = 'cwginstock_subscriber_email';
+
+	/** Compte WordPress de l'inscrit, `0` pour un visiteur non connecté. */
+	public const META_USER_ID = 'cwginstock_user_id';
+
+	/** Nom saisi. Absente si le champ est vide ou désactivé. */
+	public const META_NAME = 'cwginstock_subscriber_name';
+
+	/** Quantité demandée. Absente si le champ quantité est désactivé. */
+	public const META_QUANTITY = 'cwginstock_custom_quantity';
+
+	/** Horodatage UNIX UTC de l'envoi de l'alerte. */
+	public const META_MAIL_ON = 'cwginstock_mail_on';
+
+	/**
+	 * Nombre d'inscrits en attente, stocké sur le PRODUIT.
+	 *
+	 * L'hôte n'y compte que les `cwg_subscribed`. Tout code qui fait sortir une
+	 * inscription de ce statut doit le recalculer, sous peine de le laisser
+	 * dériver silencieusement.
+	 */
+	public const PRODUCT_META_SUBSCRIBER_COUNT = 'cwg_total_subscribers';
+
+	/*
+	 * ---------------------------------------------------------------------
+	 * Hooks consommés
+	 * ---------------------------------------------------------------------
+	 */
+
+	/**
+	 * `( int $subscriber_id, array $post_data )` — inscription enregistrée.
+	 *
+	 * Émis depuis trois endroits dont la forme de `$post_data` DIFFÈRE : la
+	 * clé de l'adresse est `user_email` en AJAX et `email` en REST. Il se
+	 * déclenche aussi sur une ré-inscription et sur une mise à jour REST.
+	 * Ne jamais lire le second argument : tout relire depuis l'ID.
+	 */
+	public const HOOK_AFTER_INSERT_SUBSCRIBER = 'cwginstock_after_insert_subscriber';
+
+	/**
+	 * `( bool $stop, int $subscriber_id, WC_Product $product )` — filtre.
+	 *
+	 * Renvoyer `true` empêche l'envoi de l'alerte de retour en stock.
+	 */
+	public const HOOK_STOP_EMAIL = 'cwginstock_stop_email';
+
+	/** `( array $keys )` — clés de formulaire persistées en méta, sans préfixe. */
+	public const HOOK_CUSTOM_META_KEYS = 'cwginstocknotifier_insert_custom_meta_data';
+
+	/** `( int $product_id, int $variation_id )` — sous le champ e-mail du formulaire. */
+	public const HOOK_AFTER_EMAIL_FIELD = 'cwg_instock_after_email_field';
+
+	/*
+	 * ---------------------------------------------------------------------
+	 * Réglages de l'extension hôte
+	 * ---------------------------------------------------------------------
+	 */
+
+	/**
 	 * Option principale de l'extension hôte (tableau de réglages).
 	 */
 	public const SETTINGS_OPTION = 'cwginstocksettings';
+
+	/** Clé d'activation de la suppression automatique des inscrits. */
+	public const SETTING_AUTO_DELETE = 'enable_auto_delete';
+
+	/** Nombre de jours de rétention avant suppression automatique. */
+	public const SETTING_AUTO_DELETE_DAYS = 'delete_subscribers_for_x_days';
+
+	/** Rétention appliquée par l'hôte quand la valeur n'est pas renseignée. */
+	public const AUTO_DELETE_DEFAULT_DAYS = 7;
 
 	/**
 	 * Dossier de surcharge des gabarits, à créer dans le thème.
@@ -176,6 +319,95 @@ final class BackInStockNotifier {
 	 */
 	public static function settings(): array {
 		return (array) get_option( self::SETTINGS_OPTION, array() );
+	}
+
+	/**
+	 * Statuts d'inscription enregistrés par la version gratuite de l'hôte.
+	 *
+	 * @return string[]
+	 */
+	public static function statuses(): array {
+		return array(
+			self::STATUS_SUBSCRIBED,
+			self::STATUS_QUEUED,
+			self::STATUS_MAILSENT,
+			self::STATUS_MAILNOTSENT,
+			self::STATUS_CONVERTED,
+			self::STATUS_UNSUBSCRIBED,
+		);
+	}
+
+	/**
+	 * L'extension hôte supprime-t-elle automatiquement ses inscrits ?
+	 *
+	 * Réglage désactivé par défaut, mais lourd de conséquences quand il est
+	 * actif : l'hôte efface DÉFINITIVEMENT (`wp_delete_post( $id, true )`) les
+	 * inscriptions « Mail Sent », « Unsubscribed » et « Purchased » passé un
+	 * délai. Tout ce que ce plugin attache à une inscription — conversion,
+	 * statut d'origine, marqueur de synchronisation — part avec elle.
+	 *
+	 * @return bool
+	 */
+	public static function auto_delete_enabled(): bool {
+		$settings = self::settings();
+
+		return isset( $settings[ self::SETTING_AUTO_DELETE ] )
+			&& '1' === (string) $settings[ self::SETTING_AUTO_DELETE ];
+	}
+
+	/**
+	 * Rétention appliquée par la suppression automatique de l'hôte, en jours.
+	 *
+	 * @return int
+	 */
+	public static function auto_delete_days(): int {
+		$settings = self::settings();
+		$days     = isset( $settings[ self::SETTING_AUTO_DELETE_DAYS ] )
+			? (int) $settings[ self::SETTING_AUTO_DELETE_DAYS ]
+			: 0;
+
+		return $days > 0 ? $days : self::AUTO_DELETE_DEFAULT_DAYS;
+	}
+
+	/**
+	 * Recalcule le nombre d'inscrits en attente stocké sur un produit.
+	 *
+	 * L'hôte maintient `cwg_total_subscribers` à l'inscription et à l'envoi,
+	 * mais il ne connaît évidemment pas les transitions que CE plugin provoque.
+	 * Sans ce recalcul, le compteur affiché par l'hôte surestime durablement le
+	 * nombre de personnes réellement en attente.
+	 *
+	 * @param int $product_id Produit parent.
+	 *
+	 * @return void
+	 */
+	public static function refresh_subscriber_count( int $product_id ): void {
+		if ( $product_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- compteur de l'hôte, recalculé ponctuellement après une transition.
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*)
+				   FROM {$wpdb->posts} p
+				  INNER JOIN {$wpdb->postmeta} pm
+				          ON pm.post_id = p.ID
+				         AND pm.meta_key = %s
+				  WHERE p.post_type = %s
+				    AND p.post_status = %s
+				    AND pm.meta_value = %s",
+				self::META_PRODUCT_ID,
+				self::SUBSCRIBER_TYPE,
+				self::STATUS_SUBSCRIBED,
+				(string) $product_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		update_post_meta( $product_id, self::PRODUCT_META_SUBSCRIBER_COUNT, $count );
 	}
 
 	/**

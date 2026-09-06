@@ -55,6 +55,13 @@ abstract class AbstractModule implements ModuleInterface {
 	/**
 	 * {@inheritDoc}
 	 */
+	public function is_enabled_by_default(): bool {
+		return $this->enabled_by_default;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public function is_enabled(): bool {
 		$enabled = Settings::get_bool(
 			'module_' . $this->get_id() . '_enabled',

@@ -18,6 +18,8 @@ parameters:
         # fichier principal (elles viennent d'appels de fonction WordPress). Ce
         # fichier ne peut pas être « analysé » ET « scanné » : d'où un stub à part.
         - stubs/plugin-constants.php
+        # Action Scheduler est embarqué par WooCommerce, mais absent de ses stubs.
+        - stubs/action-scheduler.php
     scanDirectories:
         # La bibliothèque de mise à jour est exclue de l'ANALYSE (excludePaths),
         # mais ses classes doivent rester résolvables : buildUpdateChecker()

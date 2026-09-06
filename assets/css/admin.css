@@ -27,3 +27,138 @@
 	background: #fcf0f1;
 	color: #8a2424;
 }
+
+/* -------------------------------------------------------------------------
+ * Bandeau d'indicateurs, au-dessus de la liste des inscrits.
+ *
+ * Chaque variable d'administration est utilisée AVEC un repli littéral :
+ * `--wp-admin-theme-color` n'est pas déclarée sur tous les écrans, et aucune
+ * feuille du cœur ne la définit pour le jeu de couleurs « Original ». Sans
+ * repli, la couleur serait simplement absente.
+ * ---------------------------------------------------------------------- */
+
+.ebisn-stats {
+	--ebisn-surface: #fff;
+	--ebisn-border: #dcdcde;
+	--ebisn-text: #1e1e1e;
+	--ebisn-text-muted: #50575e;
+	--ebisn-accent: var( --wp-admin-theme-color, #3858e9 );
+	--ebisn-pending: #1e1e1e;
+	--ebisn-lost: #8a4a00;
+	--ebisn-won: #005c25;
+
+	margin: 16px 0;
+	padding: 16px 20px;
+	background: var( --ebisn-surface );
+	border: 1px solid var( --ebisn-border );
+	border-radius: 8px;
+	color: var( --ebisn-text );
+	/* Le conteneur est injecté dans la barre de filtres, qui flotte. */
+	clear: both;
+}
+
+.ebisn-stats__grid {
+	display: grid;
+	/* `auto-fit` plutôt qu'un nombre fixe : la grille se replie d'elle-même sur
+	   les écrans étroits, sans point de rupture ni JavaScript. */
+	grid-template-columns: repeat( auto-fit, minmax( 200px, 1fr ) );
+	gap: 20px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ebisn-stat {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0;
+}
+
+.ebisn-stat__label {
+	font-size: 12px;
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	color: var( --ebisn-text-muted );
+}
+
+.ebisn-stat__value {
+	font-size: 24px;
+	font-weight: 600;
+	line-height: 1.2;
+	color: var( --ebisn-pending );
+}
+
+.ebisn-stat__value .woocommerce-Price-currencySymbol {
+	font-weight: 400;
+}
+
+.ebisn-stat__hint {
+	font-size: 12px;
+	color: var( --ebisn-text-muted );
+}
+
+.ebisn-stat--lost .ebisn-stat__value {
+	color: var( --ebisn-lost );
+}
+
+.ebisn-stat--won .ebisn-stat__value {
+	color: var( --ebisn-won );
+}
+
+.ebisn-stat--total .ebisn-stat__value {
+	color: var( --ebisn-accent );
+}
+
+.ebisn-stats__rate {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid var( --ebisn-border );
+	max-width: 420px;
+}
+
+.ebisn-meter {
+	height: 6px;
+	margin: 6px 0 4px;
+	overflow: hidden;
+	background: #f0f0f1;
+	border-radius: 3px;
+}
+
+.ebisn-meter__fill {
+	display: block;
+	height: 100%;
+	background: var( --ebisn-won );
+}
+
+.ebisn-stats__notes {
+	margin: 12px 0 0;
+	padding-top: 10px;
+	border-top: 1px solid var( --ebisn-border );
+	font-size: 12px;
+	font-style: italic;
+	color: var( --ebisn-text-muted );
+}
+
+.ebisn-stats__refresh {
+	font-style: normal;
+}
+
+@media screen and ( max-width: 782px ) {
+
+	.ebisn-stats {
+		padding: 14px;
+	}
+
+	.ebisn-stats__grid {
+		gap: 16px;
+	}
+
+	.ebisn-stat__value {
+		font-size: 20px;
+	}
+}

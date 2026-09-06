@@ -7,6 +7,7 @@
 
 namespace EBISN;
 
+use EBISN\Brevo\ContactState;
 use EBISN\Integration\BackInStockNotifier;
 
 defined( 'ABSPATH' ) || exit;
@@ -51,8 +52,13 @@ final class Installer {
 			);
 		}
 
-		self::maybe_upgrade();
-
+		/*
+		 * `maybe_upgrade()` n'est PAS appelée ici. Lors d'une activation, le
+		 * conteneur n'a pas été amorcé : aucun module n'est enregistré, donc
+		 * personne n'écouterait `ebisn_upgrade`. Marquer la version installée à
+		 * ce moment reviendrait à sauter définitivement les amorçages. C'est la
+		 * première requête ordinaire qui s'en chargera, modules chargés.
+		 */
 		do_action( 'ebisn_activated' );
 	}
 
@@ -93,6 +99,11 @@ final class Installer {
 		if ( EBISN_VERSION === $installed ) {
 			return;
 		}
+
+		// Le schéma appartient au plugin, pas à un module : il doit exister même
+		// si le module qui l'exploite est désactivé, sinon toute lecture d'état
+		// échouerait sur une table absente.
+		ContactState::install();
 
 		/**
 		 * Point d'accroche pour les migrations de données.
