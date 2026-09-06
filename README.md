@@ -4,7 +4,7 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.2.1
+- **Version** : 0.3.0
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
   Back In Stock Notifier 7.0+ (relu sur 7.4.2)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
@@ -44,6 +44,8 @@ extender-for-back-in-stock-notifier/
     │   ├── Admin.php                        Hooks admin, assets, lien « Réglages »
     │   ├── SettingsTab.php                  WooCommerce → Réglages → Extender BIS
     │   ├── StatsBanner.php                  Bandeau d'indicateurs sur la liste des inscrits
+    │   ├── SizeMatrixPage.php               Écran « Demandes par taille »
+    │   ├── SizeMatrixTable.php              WP_List_Table à colonnes dynamiques
     │   └── BrevoBackfillPage.php            Lancement et suivi du rattrapage Brevo
     ├── Conversion/                          Détection d'achat et statut « Purchased »
     │   ├── ConversionService.php            SEUL point d'écriture d'un statut d'inscription
@@ -66,6 +68,10 @@ extender-for-back-in-stock-notifier/
     │   ├── SyncService.php                  Synchro au fil de l'eau, avec report exponentiel
     │   ├── Backfill.php                     Rattrapage en masse, suivi des imports
     │   └── Consent.php                      Case de consentement et preuve horodatée
+    ├── Matrix/                              Croisement des demandes par déclinaison
+    │   ├── DemandMatrix.php                 Collecte agrégée, mise en cache
+    │   ├── AttributeResolver.php            Choix de l'attribut d'axe et ordre des colonnes
+    │   └── MatrixExporter.php               Export CSV, formules neutralisées
     ├── Migration/
     │   └── LegacyConversionMeta.php         Reprise des métadonnées des snippets WPCode
     ├── Modules/
@@ -73,6 +79,7 @@ extender-for-back-in-stock-notifier/
     │   ├── AbstractModule.php               Base : activation pilotée par option
     │   ├── PurchaseConversion.php           Module « Purchased »
     │   ├── ConversionStats.php              Module « indicateurs »
+    │   ├── SizeMatrix.php                   Module « Demandes par taille »
     │   └── BrevoSync.php                    Module « Brevo » (désactivé par défaut)
     └── Support/
         ├── Settings.php                     Lecture/écriture des options ebisn_*
@@ -91,6 +98,7 @@ extender-for-back-in-stock-notifier/
 |---|---|---|---|
 | Marquer « Purchased » | `purchase_conversion` | oui | Fait passer une inscription au statut `cwg_converted` quand son titulaire commande le produit attendu, au fil de l'eau et sur tout l'historique. Annule la conversion en cas de remboursement ou d'annulation. |
 | Valeur des listes d'attente | `conversion_stats` | oui | Affiche au-dessus de la liste des inscrits la valeur en attente, le chiffre d'affaires récupéré et le taux de conversion. |
+| Demandes par taille | `size_matrix` | oui | Écran croisant les demandes par produit et par déclinaison, avec recherche, tri, pagination et export CSV. L'attribut porté en colonnes et les statuts comptés sont réglables. |
 | Synchronisation Brevo | `brevo_sync` | **non** | Pousse les adresses inscrites vers une liste Brevo. Dépend de l'extension Brevo (`mailin`) ou d'une clé d'API saisie manuellement. |
 
 ### Dépendance optionnelle à Brevo
@@ -106,7 +114,7 @@ que celui-ci doit saisir sa clé manuellement.
 
 ## Reprise depuis les snippets WPCode
 
-Le plugin remplace cinq snippets. La bascule est conçue pour être transparente :
+Le plugin remplace six snippets. La bascule est conçue pour être transparente :
 
 - **Mise en veille automatique.** Tant qu'un snippet remplacé est encore chargé, le module
   correspondant ne s'accroche à rien et le signale dans le panneau Diagnostic. Sans cela, les
@@ -122,6 +130,10 @@ Le plugin remplace cinq snippets. La bascule est conçue pour être transparente
 - **Rattrapage Brevo.** Si l'option `mh_brevo_backfill_job` du snippet est trouvée en base
   avec au moins un lot traité, le rattrapage est marqué comme déjà effectué et rien n'est
   renvoyé.
+- **Demandes par taille.** Les constantes `MH_BISN_MX_STATUS`, `MH_BISN_MX_SIZE_ATTR` et
+  `MH_BISN_MX_CACHE_TTL` sont reprises comme valeurs initiales des réglages si elles sont
+  définies au moment de la migration. L'ancienne adresse `page=mh-bisn-matrice` redirige vers
+  la nouvelle page, et le cache du snippet est purgé.
 
 ## Traitements de fond
 

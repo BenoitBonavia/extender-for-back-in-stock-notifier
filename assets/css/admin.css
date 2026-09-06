@@ -176,3 +176,129 @@
 		font-size: 20px;
 	}
 }
+
+/* -------------------------------------------------------------------------
+ * Écran « Demandes par taille ».
+ *
+ * Le tableau est un WP_List_Table : il hérite de tout le style natif. Ne
+ * subsistent ici que la carte de chaleur et la répartition, qui n'ont pas
+ * d'équivalent dans l'administration.
+ * ---------------------------------------------------------------------- */
+
+.ebisn-stats + .ebisn-breakdown {
+	margin-top: -4px;
+}
+
+.ebisn-breakdown {
+	margin: 0 0 16px;
+}
+
+.ebisn-breakdown__title {
+	margin: 0 0 8px;
+	font-size: 13px;
+	font-weight: 600;
+	color: #50575e;
+}
+
+.ebisn-breakdown__list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	align-items: flex-end;
+	margin: 0;
+	padding: 12px 14px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	list-style: none;
+}
+
+.ebisn-breakdown__item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 3px;
+	min-width: 46px;
+	margin: 0;
+	flex: 1 1 46px;
+}
+
+/* La barre est ancrée en bas : c'est la comparaison des hauteurs qui porte
+   l'information, pas leur position. */
+.ebisn-breakdown__bar {
+	display: flex;
+	align-items: flex-end;
+	width: 100%;
+	height: 44px;
+}
+
+.ebisn-breakdown__bar > span {
+	display: block;
+	width: 100%;
+	min-height: 2px;
+	background: var( --wp-admin-theme-color, #3858e9 );
+	border-radius: 2px 2px 0 0;
+	opacity: 0.75;
+}
+
+.ebisn-breakdown__count {
+	font-size: 12px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.ebisn-breakdown__label {
+	font-size: 11px;
+	color: #50575e;
+	text-align: center;
+	overflow-wrap: anywhere;
+}
+
+/* Colonnes de déclinaison : étroites, centrées, chiffres alignés. */
+.wp-list-table th[class*="column-v"],
+.wp-list-table td[class*="column-v"],
+.wp-list-table .column-ebisn_total {
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+	width: 68px;
+}
+
+.wp-list-table .column-ebisn_product {
+	width: auto;
+}
+
+/*
+ * L'intensité est portée par l'opacité d'un calque, et non par une couleur
+ * calculée : `--wp-admin-theme-color` est une valeur hexadécimale, qu'on ne
+ * peut pas décomposer pour en faire un `rgba()`. Passer par un pseudo-élément
+ * permet de garder la teinte du jeu de couleurs choisi par l'utilisateur tout
+ * en faisant varier son intensité.
+ */
+.ebisn-matrix__cell {
+	position: relative;
+	display: block;
+	padding: 4px 0;
+	font-weight: 600;
+	text-decoration: none;
+	border-radius: 3px;
+	isolation: isolate;
+}
+
+.ebisn-matrix__cell::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: -1;
+	border-radius: 3px;
+	background: var( --wp-admin-theme-color, #3858e9 );
+	opacity: calc( var( --ebisn-heat, 0 ) * 0.22 );
+}
+
+.ebisn-matrix__cell:hover::before,
+.ebisn-matrix__cell:focus::before {
+	opacity: calc( var( --ebisn-heat, 0 ) * 0.22 + 0.14 );
+}
+
+.ebisn-matrix__nil {
+	color: #c3c4c7;
+}

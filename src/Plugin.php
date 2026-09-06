@@ -119,6 +119,7 @@ final class Plugin {
 			array(
 				\EBISN\Modules\PurchaseConversion::class,
 				\EBISN\Modules\ConversionStats::class,
+				\EBISN\Modules\SizeMatrix::class,
 				\EBISN\Modules\BrevoSync::class,
 			)
 		);

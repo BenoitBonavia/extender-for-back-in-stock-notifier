@@ -12,6 +12,7 @@ use EBISN\Brevo\Contacts;
 use EBISN\Brevo\Lists;
 use EBISN\Integration\BackInStockNotifier;
 use EBISN\Integration\Brevo;
+use EBISN\Matrix\DemandMatrix;
 use EBISN\Modules\ModuleInterface;
 use EBISN\Plugin;
 use EBISN\Support\Settings;
@@ -51,8 +52,100 @@ final class SettingsTab extends \WC_Settings_Page {
 			''           => __( 'Général', 'extender-for-back-in-stock-notifier' ),
 			'modules'    => __( 'Modules', 'extender-for-back-in-stock-notifier' ),
 			'conversion' => __( 'Conversion', 'extender-for-back-in-stock-notifier' ),
+			'matrix'     => __( 'Demandes par taille', 'extender-for-back-in-stock-notifier' ),
 			'brevo'      => __( 'Brevo', 'extender-for-back-in-stock-notifier' ),
 		);
+	}
+
+	/**
+	 * Champs de la section « Demandes par taille ».
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	protected function get_settings_for_matrix_section(): array {
+		return array(
+			array(
+				'title' => __( 'Demandes par taille', 'extender-for-back-in-stock-notifier' ),
+				'type'  => 'title',
+				'desc'  => __( 'Écran croisant les demandes de réassort par produit et par déclinaison.', 'extender-for-back-in-stock-notifier' ),
+				'id'    => Settings::PREFIX . 'matrix_options',
+			),
+			array(
+				'title'    => __( 'Attribut de déclinaison', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Attribut porté en colonnes. La détection automatique privilégie un attribut dont le nom évoque une taille, puis le plus souvent renseigné.', 'extender-for-back-in-stock-notifier' ),
+				'id'       => Settings::PREFIX . 'matrix_attribute',
+				'type'     => 'select',
+				'options'  => $this->attribute_options(),
+				'default'  => '',
+				'class'    => 'wc-enhanced-select',
+			),
+			array(
+				'title'    => __( 'Statuts comptés', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Par défaut, seules les demandes réellement en attente sont comptées. Ajouter « En file » ou « Alerte envoyée » donne la demande totale plutôt que le reste à servir.', 'extender-for-back-in-stock-notifier' ),
+				'id'       => Settings::PREFIX . 'matrix_statuses',
+				'type'     => 'multiselect',
+				'options'  => $this->status_options(),
+				'default'  => DemandMatrix::DEFAULT_STATUSES,
+				'class'    => 'wc-enhanced-select',
+			),
+			array(
+				'title'    => __( 'Durée du cache', 'extender-for-back-in-stock-notifier' ),
+				'desc'     => __( 'minutes', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Le cache est de toute façon vidé dès qu’une inscription ou une conversion le périme. 0 le désactive.', 'extender-for-back-in-stock-notifier' ),
+				'id'       => Settings::PREFIX . 'matrix_cache_minutes',
+				'type'     => 'number',
+				'default'  => DemandMatrix::DEFAULT_TTL_MINUTES,
+				'css'      => 'width:100px;',
+			),
+			array(
+				'type' => 'sectionend',
+				'id'   => Settings::PREFIX . 'matrix_options',
+			),
+		);
+	}
+
+	/**
+	 * Attributs de produit proposés comme axe de la matrice.
+	 *
+	 * @return array<string, string>
+	 */
+	private function attribute_options(): array {
+		$options = array( '' => __( 'Détection automatique', 'extender-for-back-in-stock-notifier' ) );
+
+		if ( ! function_exists( 'wc_get_attribute_taxonomies' ) ) {
+			return $options;
+		}
+
+		foreach ( wc_get_attribute_taxonomies() as $attribute ) {
+			if ( empty( $attribute->attribute_name ) ) {
+				continue;
+			}
+
+			$name = 'pa_' . $attribute->attribute_name;
+
+			$options[ $name ] = ! empty( $attribute->attribute_label )
+				? (string) $attribute->attribute_label
+				: $name;
+		}
+
+		return $options;
+	}
+
+	/**
+	 * Statuts d'inscription proposés au comptage.
+	 *
+	 * @return array<string, string>
+	 */
+	private function status_options(): array {
+		$options = array();
+
+		foreach ( BackInStockNotifier::statuses() as $status ) {
+			$object = get_post_status_object( $status );
+
+			$options[ $status ] = $object && isset( $object->label ) ? (string) $object->label : $status;
+		}
+
+		return $options;
 	}
 
 	/**

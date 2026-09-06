@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.2.1
+Stable tag: 0.3.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -30,6 +30,10 @@ Modules disponibles :
 * **Valeur des listes d'attente.** Un bandeau au-dessus de la liste des inscrits : valeur en
   attente de réassort, valeur non récupérée, chiffre d'affaires récupéré selon deux
   attributions, et taux de conversion calculé sur les seuls inscrits notifiés.
+* **Demandes par taille.** Un écran croisant les demandes de retour en stock par produit et
+  par déclinaison : de quelles tailles avez-vous besoin, et en quelle quantité ? Recherche,
+  tri, pagination et export CSV. L'attribut porté en colonnes est détecté automatiquement,
+  et reste modifiable — la même page peut aussi bien répondre par couleur ou par matière.
 * **Synchronisation Brevo** (désactivé par défaut). Pousse les adresses inscrites vers une
   liste Brevo, au fil de l'eau et en rattrapage. Les attributs décrivent l'ensemble des
   produits qu'une personne attend, et sont recalculés à chaque envoi.
@@ -91,6 +95,21 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
 
+= 0.3.0 =
+* Nouveau module « Demandes par taille » : écran croisant les demandes de retour en stock
+  par produit et par déclinaison, avec recherche, tri, pagination, export CSV et carte de
+  chaleur.
+* L'attribut porté en colonnes est réglable : la page peut croiser par couleur, matière ou
+  tout autre attribut, pas seulement par taille.
+* Les statuts comptés sont réglables : au-delà des seules demandes en attente, il est
+  possible de lire la demande totale.
+* Les tailles textuelles suivent enfin l'ordre défini dans WooCommerce : XS, S, M, L, XL,
+  et non l'ordre alphabétique.
+* Cliquer une cellule ne liste plus que les demandes de cette déclinaison, y compris quand
+  plusieurs variations la partagent.
+* Un produit dont une variation a été supprimée conserve son nom.
+* L'export CSV ne peut plus injecter de formule dans un tableur.
+
 = 0.2.1 =
 * Le taux de conversion occupe désormais toute la largeur du bandeau : la jauge, plus haute,
   se lit d'un coup d'œil. Libellé et valeur sont alignés de part et d'autre.
@@ -123,6 +142,11 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.3.0 =
+Ajoute l'écran « Demandes par taille ». Si vous utilisiez le snippet correspondant,
+désactivez-le : le module reste en veille tant qu'il est chargé, et sa configuration est
+reprise automatiquement.
 
 = 0.2.1 =
 Ajustement d'affichage du bandeau d'indicateurs. Aucune donnée n'est modifiée.
