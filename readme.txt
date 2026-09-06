@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.4.1
+Stable tag: 0.4.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -100,6 +100,16 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
 
+= 0.4.2 =
+* Le bouton de désabonnement apparaît désormais aussi pour un client connecté dont
+  l'inscription avait été faite en tant qu'invité : l'adresse du compte, vérifiée par
+  WordPress, sert à la retrouver.
+* Suivre le lien de désabonnement reçu par e-mail rattache le navigateur aux autres
+  demandes de la même adresse, qui deviennent gérables depuis la fiche produit.
+* Le panneau Diagnostic indique pour combien d'inscriptions le bouton peut s'afficher, et
+  rappelle que les inscriptions d'invités antérieures au module ne sont joignables que par
+  le lien e-mail.
+
 = 0.4.1 =
 * Les réglages ne sont plus un onglet de WooCommerce : la page vit désormais sous le menu
   Instock Notifier, avec les autres écrans de l'extension. L'ancienne adresse redirige.
@@ -186,6 +196,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.4.2 =
+Améliore la reconnaissance des inscrits pour le bouton de désabonnement.
 
 = 0.4.1 =
 Les réglages passent sous le menu Instock Notifier. Aucune donnée n'est modifiée.

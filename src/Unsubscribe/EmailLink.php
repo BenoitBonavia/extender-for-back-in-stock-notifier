@@ -176,6 +176,14 @@ final class EmailLink {
 			$this->redirect();
 		}
 
+		/*
+		 * Le lien prouve que ce navigateur appartient bien au titulaire de
+		 * l'inscription : on en profite pour l'y rattacher. Les autres demandes
+		 * de la même personne deviennent alors gérables depuis la fiche produit,
+		 * sans repasser par sa boîte mail.
+		 */
+		$this->remember_visitor( $subscription_id );
+
 		$status = (string) get_post_status( $subscription_id );
 
 		if ( Host::STATUS_UNSUBSCRIBED === $status ) {
@@ -200,6 +208,66 @@ final class EmailLink {
 		}
 
 		$this->redirect();
+	}
+
+	/**
+	 * Rattache le navigateur aux inscriptions partageant cette adresse.
+	 *
+	 * @param int $subscription_id Inscription dont le lien vient d'être suivi.
+	 */
+	private function remember_visitor( int $subscription_id ): void {
+		$token = VisitorCookie::ensure();
+
+		if ( '' === $token ) {
+			return;
+		}
+
+		$email = (string) get_post_meta( $subscription_id, Host::META_EMAIL, true );
+
+		if ( '' === $email ) {
+			$email = (string) get_the_title( $subscription_id );
+		}
+
+		foreach ( $this->siblings( $email ) as $id ) {
+			update_post_meta( $id, VisitorCookie::META, $token );
+		}
+	}
+
+	/**
+	 * Inscriptions en cours partageant une adresse.
+	 *
+	 * @param string $email Adresse.
+	 *
+	 * @return int[]
+	 */
+	private function siblings( string $email ): array {
+		global $wpdb;
+
+		$email = sanitize_email( trim( $email ) );
+
+		if ( ! is_email( $email ) ) {
+			return array();
+		}
+
+		$statuses = SubscriberLocator::active_statuses();
+
+		if ( empty( $statuses ) ) {
+			return array();
+		}
+
+		$sql = "SELECT ID
+				  FROM {$wpdb->posts}
+				 WHERE post_type = %s
+				   AND post_title = %s
+				   AND post_status IN ( " . implode( ', ', array_fill( 0, count( $statuses ), '%s' ) ) . ' )';
+
+		$values = array_merge( array( Host::SUBSCRIBER_TYPE, $email ), $statuses );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- requête assemblée avec des marqueurs, puis passée à prepare() ; opération ponctuelle déclenchée par un clic.
+		$ids = $wpdb->get_col( $wpdb->prepare( $sql, $values ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**

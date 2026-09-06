@@ -131,6 +131,8 @@ final class Unsubscribe extends AbstractModule {
 				: '<code>' . esc_html__( 'désactivée', 'extender-for-back-in-stock-notifier' ) . '</code>'
 		);
 
+		$lines[] = $this->reachability_line();
+
 		if ( $this->repeat_notifications_enabled() ) {
 			$lines[] = sprintf(
 				/* translators: %s: nom du réglage de l'extension hôte. */
@@ -140,6 +142,74 @@ final class Unsubscribe extends AbstractModule {
 		}
 
 		return $lines;
+	}
+
+	/**
+	 * Décrit combien d'inscriptions peuvent afficher le bouton.
+	 *
+	 * Le bouton suppose de reconnaître le visiteur. Une inscription faite en
+	 * invité avant l'installation de ce module ne porte ni compte ni jeton de
+	 * navigateur : elle n'est joignable que par le lien envoyé en e-mail. Ce
+	 * décompte évite d'avoir à le deviner.
+	 *
+	 * @return string
+	 */
+	private function reachability_line(): string {
+		global $wpdb;
+
+		$statuses     = \EBISN\Unsubscribe\SubscriberLocator::active_statuses();
+		$placeholders = implode( ', ', array_fill( 0, max( 1, count( $statuses ) ), '%s' ) );
+
+		$sql = "SELECT COUNT(*) AS total,
+					   SUM( CASE WHEN COALESCE( uid.meta_value, '0' ) <> '0' THEN 1 ELSE 0 END ) AS with_account,
+					   SUM( CASE WHEN visitor.meta_value IS NOT NULL THEN 1 ELSE 0 END ) AS with_browser
+				  FROM {$wpdb->posts} p
+				  LEFT JOIN {$wpdb->postmeta} uid
+						 ON uid.post_id = p.ID
+						AND uid.meta_key = %s
+				  LEFT JOIN {$wpdb->postmeta} visitor
+						 ON visitor.post_id = p.ID
+						AND visitor.meta_key = %s
+				 WHERE p.post_type = %s
+				   AND p.post_status IN ( {$placeholders} )";
+
+		$values = array_merge(
+			array( Host::META_USER_ID, \EBISN\Unsubscribe\VisitorCookie::META, Host::SUBSCRIBER_TYPE ),
+			$statuses
+		);
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- requête assemblée avec des marqueurs, puis passée à prepare() ; affichage du panneau Diagnostic.
+		$row = $wpdb->get_row( $wpdb->prepare( $sql, $values ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		if ( ! $row ) {
+			return '';
+		}
+
+		$total     = (int) $row->total;
+		$reachable = (int) $row->with_account + (int) $row->with_browser;
+
+		if ( 0 === $total ) {
+			return '';
+		}
+
+		$line = sprintf(
+			/* translators: 1: inscriptions reconnaissables, 2: total, 3: nombre liées à un compte, 4: nombre liées à un navigateur. */
+			esc_html__( 'Bouton de désabonnement affichable pour %1$s inscription(s) en cours sur %2$s : %3$s liée(s) à un compte client, %4$s à un navigateur.', 'extender-for-back-in-stock-notifier' ),
+			'<strong>' . esc_html( number_format_i18n( $reachable ) ) . '</strong>',
+			'<strong>' . esc_html( number_format_i18n( $total ) ) . '</strong>',
+			esc_html( number_format_i18n( (int) $row->with_account ) ),
+			esc_html( number_format_i18n( (int) $row->with_browser ) )
+		);
+
+		if ( $reachable >= $total ) {
+			return $line;
+		}
+
+		return $line . ' ' . esc_html__(
+			'Les autres ont été créées en tant qu’invité avant l’activation de ce module : seul le lien inséré dans vos e-mails permet de les désabonner.',
+			'extender-for-back-in-stock-notifier'
+		);
 	}
 
 	/**

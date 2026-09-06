@@ -133,8 +133,18 @@ final class SubscriberLocator {
 
 		$user_id = get_current_user_id();
 
-		if ( $user_id > 0 && (int) get_post_meta( $subscription_id, Host::META_USER_ID, true ) === $user_id ) {
-			return true;
+		if ( $user_id > 0 ) {
+			if ( (int) get_post_meta( $subscription_id, Host::META_USER_ID, true ) === $user_id ) {
+				return true;
+			}
+
+			// Inscription faite en invité, avec l'adresse du compte aujourd'hui
+			// connecté. Cette adresse est vérifiée par WordPress.
+			$email = $this->current_user_email();
+
+			if ( '' !== $email && strtolower( (string) get_the_title( $subscription_id ) ) === strtolower( $email ) ) {
+				return true;
+			}
 		}
 
 		$token = VisitorCookie::current();
@@ -212,6 +222,24 @@ final class SubscriberLocator {
 		if ( $user_id > 0 ) {
 			$where[]  = 'uid.meta_value = %d';
 			$params[] = $user_id;
+
+			/*
+			 * L'adresse du compte, en plus de son identifiant : quelqu'un ayant
+			 * demandé l'alerte en tant qu'invité, puis créé un compte ou s'étant
+			 * connecté ensuite, ne serait sinon jamais reconnu — son inscription
+			 * porte `cwginstock_user_id = 0`.
+			 *
+			 * S'appuyer sur l'adresse du compte connecté est sûr : elle est
+			 * vérifiée par WordPress, contrairement à une adresse qu'on
+			 * laisserait saisir à l'écran.
+			 */
+			$email = $this->current_user_email();
+
+			if ( '' !== $email ) {
+				// L'extension hôte recopie l'adresse dans le titre du contenu.
+				$where[]  = 'p.post_title = %s';
+				$params[] = $email;
+			}
 		}
 
 		$token = VisitorCookie::current();
@@ -225,5 +253,22 @@ final class SubscriberLocator {
 			'where'  => $where,
 			'params' => $params,
 		);
+	}
+
+	/**
+	 * Adresse du compte connecté.
+	 *
+	 * @return string Chaîne vide si personne n'est connecté.
+	 */
+	private function current_user_email(): string {
+		$user = wp_get_current_user();
+
+		if ( ! $user instanceof \WP_User || ! $user->exists() ) {
+			return '';
+		}
+
+		$email = sanitize_email( (string) $user->user_email );
+
+		return is_email( $email ) ? $email : '';
 	}
 }
