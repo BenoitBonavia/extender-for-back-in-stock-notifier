@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.4.5
+Stable tag: 0.4.6
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -99,6 +99,14 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.4.6 =
+* Correction : en mode fenêtre modale, la fiche produit continuait d'afficher le bouton
+  d'inscription. L'extension hôte y remplace son formulaire par un simple bouton d'ouverture,
+  sans passer par aucun gabarit ; ce bouton est désormais remplacé lui aussi.
+* Une demande portant sur une déclinaison est reconnue même par le formulaire affiché au
+  niveau du produit, tant qu'aucune déclinaison n'est choisie.
+* L'encart n'a plus de fond ni de bordure : il hérite simplement des styles du thème.
 
 = 0.4.5 =
 * Correction : le bouton de désabonnement n'apparaissait pas lorsque le formulaire était
@@ -214,6 +222,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.4.6 =
+Corrige le bouton de désabonnement en mode fenêtre modale.
 
 = 0.4.5 =
 Corrige l'absence du bouton de désabonnement selon la façon dont le formulaire est placé.

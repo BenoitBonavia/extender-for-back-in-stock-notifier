@@ -63,7 +63,50 @@ final class SubscriberLocator {
 	 * @return int[] Identifiants d'inscriptions, la plus récente d'abord.
 	 */
 	public function find_for_current_visitor( int $subscribed_id ): array {
+		return $this->find_for_targets( $this->expand_target( $subscribed_id ) );
+	}
+
+	/**
+	 * Étend une cible à ses déclinaisons quand c'est un produit variable.
+	 *
+	 * L'extension hôte affiche un formulaire par déclinaison, mais aussi un
+	 * formulaire au niveau du produit tant qu'aucune n'est choisie. Ce dernier
+	 * interroge le produit parent, alors que la demande est enregistrée sur la
+	 * déclinaison : sans cette extension, les deux formulaires coexistaient,
+	 * l'un remplacé par l'encart et l'autre non.
+	 *
+	 * @param int $subscribed_id Produit ou déclinaison affiché.
+	 *
+	 * @return int[]
+	 */
+	private function expand_target( int $subscribed_id ): array {
 		if ( $subscribed_id <= 0 ) {
+			return array();
+		}
+
+		$product = function_exists( 'wc_get_product' ) ? wc_get_product( $subscribed_id ) : null;
+
+		if ( ! $product instanceof \WC_Product || ! $product->is_type( 'variable' ) ) {
+			return array( $subscribed_id );
+		}
+
+		$targets   = array_map( 'intval', $product->get_children() );
+		$targets[] = $subscribed_id;
+
+		return array_values( array_unique( array_filter( $targets ) ) );
+	}
+
+	/**
+	 * Inscriptions du visiteur courant sur un ensemble de produits.
+	 *
+	 * @param int[] $targets Produits ou déclinaisons.
+	 *
+	 * @return int[] Identifiants d'inscriptions, la plus récente d'abord.
+	 */
+	public function find_for_targets( array $targets ): array {
+		$targets = array_values( array_unique( array_filter( array_map( 'intval', $targets ) ) ) );
+
+		if ( empty( $targets ) ) {
 			return array();
 		}
 
@@ -97,13 +140,14 @@ final class SubscriberLocator {
 						 ON visitor.post_id = p.ID
 						AND visitor.meta_key = %s
 				 WHERE p.post_type = %s
-				   AND pid.meta_value = %d
-				   AND p.post_status IN ( " . implode( ', ', array_fill( 0, count( $statuses ), '%s' ) ) . ' )
+				   AND pid.meta_value IN ( " . implode( ', ', array_fill( 0, count( $targets ), '%d' ) ) . ' )
+				   AND p.post_status IN ( ' . implode( ', ', array_fill( 0, count( $statuses ), '%s' ) ) . ' )
 				   AND ( ' . implode( ' OR ', $identity['where'] ) . ' )
 				 ORDER BY p.ID DESC';
 
 		$values = array_merge(
-			array( Host::META_PID, Host::META_USER_ID, VisitorCookie::META, Host::SUBSCRIBER_TYPE, $subscribed_id ),
+			array( Host::META_PID, Host::META_USER_ID, VisitorCookie::META, Host::SUBSCRIBER_TYPE ),
+			$targets,
 			$statuses,
 			$identity['params']
 		);

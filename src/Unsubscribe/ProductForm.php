@@ -91,6 +91,13 @@ final class ProductForm {
 	private $decisions = array();
 
 	/**
+	 * Produit dont le rendu de l'hôte est actuellement capturé, `0` sinon.
+	 *
+	 * @var int
+	 */
+	private $captured = 0;
+
+	/**
 	 * Constructeur.
 	 *
 	 * @param UnsubscribeService $service Service de désabonnement.
@@ -120,6 +127,20 @@ final class ProductForm {
 		 * pour passer après `force_template_from_plugin`, que l'hôte y branche.
 		 */
 		add_filter( 'cwginstock_locate_template', array( $this, 'swap_template' ), 20, 5 );
+
+		/*
+		 * Mode modal : l'hôte n'affiche pas son formulaire sur la fiche produit,
+		 * mais un bouton qui ouvre une fenêtre. Ce bouton est rendu sur
+		 * `cwginstock_custom_form`, sans passer par aucun gabarit — l'
+		 * interception ci-dessus ne le voit donc pas.
+		 *
+		 * On encadre ce rendu : ouverture d'un tampon avant, et remplacement du
+		 * bouton par notre encart après, si une demande est reconnue. Encadrer
+		 * plutôt que retirer le callback de l'hôte évite d'avoir à retrouver son
+		 * instance, qu'il ne conserve nulle part.
+		 */
+		add_action( Host::HOOK_CUSTOM_FORM, array( $this, 'capture_start' ), 1, 2 );
+		add_action( Host::HOOK_CUSTOM_FORM, array( $this, 'capture_end' ), 99, 2 );
 
 		add_action( 'wp_ajax_' . self::ACTION, array( $this, 'handle_ajax' ) );
 		add_action( 'wp_ajax_nopriv_' . self::ACTION, array( $this, 'handle_ajax' ) );
@@ -179,6 +200,71 @@ final class ProductForm {
 		return $this->decisions[ $target ]
 			? __( 'gabarit intercepté : aucune demande à désabonner ici', 'extender-for-back-in-stock-notifier' )
 			: __( 'gabarit intercepté et remplacé', 'extender-for-back-in-stock-notifier' );
+	}
+
+	/**
+	 * Ouvre un tampon avant le rendu de remplacement de l'hôte.
+	 *
+	 * @param mixed $product   Produit affiché.
+	 * @param mixed $variation Déclinaison affichée.
+	 */
+	public function capture_start( $product, $variation ): void {
+		$this->captured = 0;
+
+		$target = $this->target_from_objects( $product, $variation );
+
+		if ( $target <= 0 ) {
+			return;
+		}
+
+		$this->found[ $target ]     = $this->locator->find_for_current_visitor( $target );
+		$this->decisions[ $target ] = empty( $this->found[ $target ] );
+
+		if ( $this->decisions[ $target ] ) {
+			return;
+		}
+
+		$this->captured = $target;
+
+		ob_start();
+	}
+
+	/**
+	 * Remplace le rendu capturé par l'encart de désabonnement.
+	 *
+	 * @param mixed $product   Produit affiché.
+	 * @param mixed $variation Déclinaison affichée.
+	 */
+	public function capture_end( $product, $variation ): void {
+		unset( $product, $variation );
+
+		if ( $this->captured <= 0 ) {
+			return;
+		}
+
+		// Le contenu produit entre-temps — le bouton d'ouverture de la fenêtre —
+		// est jeté : il proposerait de s'inscrire à une alerte déjà en cours.
+		ob_end_clean();
+
+		self::render_box( $this->captured );
+
+		$this->captured = 0;
+	}
+
+	/**
+	 * Produit attendu, d'après les objets passés par l'hôte.
+	 *
+	 * @param mixed $product   Produit affiché.
+	 * @param mixed $variation Déclinaison affichée.
+	 *
+	 * @return int
+	 */
+	private function target_from_objects( $product, $variation ): int {
+		if ( $variation instanceof \WC_Product_Variation ) {
+			return $variation->get_id();
+		}
+
+		return $product instanceof \WC_Product ? $product->get_id() : 0;
 	}
 
 	/**

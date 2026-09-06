@@ -7,14 +7,13 @@
  * thème via la classe `button` de WooCommerce.
  */
 
+/*
+ * Aucun fond, aucune bordure : l'encart prend la place du formulaire au milieu
+ * d'un thème dont on ignore tout. Un habillage « neutre » y jure plus souvent
+ * qu'il n'aide — le texte et le bouton du thème suffisent.
+ */
 .ebisn-unsubscribe {
 	margin: 1em 0;
-	padding: 1em;
-	border: 1px solid rgba( 0, 0, 0, 0.1 );
-	border-radius: 4px;
-	/* `currentColor` très transparent : s'adapte aussi bien à un fond clair
-	   qu'à un thème sombre, sans rien présumer de la palette. */
-	background: rgba( 128, 128, 128, 0.06 );
 }
 
 .ebisn-unsubscribe__state {
