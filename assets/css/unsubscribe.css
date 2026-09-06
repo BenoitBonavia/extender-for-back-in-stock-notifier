@@ -16,6 +16,21 @@
 	margin: 1em 0;
 }
 
+/*
+ * Même retrait au-dessus du bouton d'inscription de l'extension hôte.
+ *
+ * Ce bouton et l'encart ci-dessus occupent la même place : l'un remplace
+ * l'autre selon que la personne est déjà inscrite ou non. Des marges
+ * différentes feraient sauter le contenu d'un état à l'autre.
+ *
+ * Le sélecteur porte sur l'élément et sa classe — et non sur la classe seule —
+ * pour l'emporter sur les styles de bouton du thème sans recourir à
+ * `!important`.
+ */
+button.cwg_popup_submit {
+	margin-top: 1em;
+}
+
 .ebisn-unsubscribe__state {
 	margin: 0 0 0.75em;
 	font-size: 0.95em;
