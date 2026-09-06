@@ -16,6 +16,7 @@ use EBISN\Matrix\DemandMatrix;
 use EBISN\Modules\ModuleInterface;
 use EBISN\Plugin;
 use EBISN\Support\Settings;
+use EBISN\Unsubscribe\VisitorCookie;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -49,12 +50,113 @@ final class SettingsTab extends \WC_Settings_Page {
 	 */
 	protected function get_own_sections(): array {
 		return array(
-			''           => __( 'Général', 'extender-for-back-in-stock-notifier' ),
-			'modules'    => __( 'Modules', 'extender-for-back-in-stock-notifier' ),
-			'conversion' => __( 'Conversion', 'extender-for-back-in-stock-notifier' ),
-			'matrix'     => __( 'Demandes par taille', 'extender-for-back-in-stock-notifier' ),
-			'brevo'      => __( 'Brevo', 'extender-for-back-in-stock-notifier' ),
+			''            => __( 'Général', 'extender-for-back-in-stock-notifier' ),
+			'modules'     => __( 'Modules', 'extender-for-back-in-stock-notifier' ),
+			'conversion'  => __( 'Conversion', 'extender-for-back-in-stock-notifier' ),
+			'matrix'      => __( 'Demandes par taille', 'extender-for-back-in-stock-notifier' ),
+			'unsubscribe' => __( 'Désabonnement', 'extender-for-back-in-stock-notifier' ),
+			'brevo'       => __( 'Brevo', 'extender-for-back-in-stock-notifier' ),
 		);
+	}
+
+	/**
+	 * Champs de la section « Désabonnement ».
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	protected function get_settings_for_unsubscribe_section(): array {
+		return array(
+			array(
+				'title' => __( 'Désabonnement', 'extender-for-back-in-stock-notifier' ),
+				'type'  => 'title',
+				'desc'  => $this->unsubscribe_intro(),
+				'id'    => Settings::PREFIX . 'unsubscribe_options',
+			),
+			array(
+				'title'       => __( 'Libellé du bouton', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip'    => __( 'Texte du bouton qui remplace le formulaire d’inscription pour une personne déjà inscrite.', 'extender-for-back-in-stock-notifier' ),
+				'id'          => Settings::PREFIX . 'unsubscribe_button_label',
+				'type'        => 'text',
+				'default'     => '',
+				'placeholder' => __( 'Ne plus être prévenu·e', 'extender-for-back-in-stock-notifier' ),
+				'css'         => 'width:320px;',
+			),
+			array(
+				'title'       => __( 'Message « inscrit »', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip'    => __( 'Texte affiché au-dessus du bouton tant que la personne est inscrite.', 'extender-for-back-in-stock-notifier' ),
+				'id'          => Settings::PREFIX . 'unsubscribe_subscribed_message',
+				'type'        => 'text',
+				'default'     => '',
+				'placeholder' => __( 'Vous serez prévenu·e dès le retour en stock.', 'extender-for-back-in-stock-notifier' ),
+				'css'         => 'width:420px;',
+			),
+			array(
+				'title'       => __( 'Message « désabonné »', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip'    => __( 'Texte affiché une fois le désabonnement effectué.', 'extender-for-back-in-stock-notifier' ),
+				'id'          => Settings::PREFIX . 'unsubscribe_done_message',
+				'type'        => 'text',
+				'default'     => '',
+				'placeholder' => __( 'Vous ne serez plus prévenu·e pour ce produit.', 'extender-for-back-in-stock-notifier' ),
+				'css'         => 'width:420px;',
+			),
+			array(
+				'title'    => __( 'Demander confirmation', 'extender-for-back-in-stock-notifier' ),
+				'desc'     => __( 'Afficher une demande de confirmation avant de désabonner.', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Décoché, le désabonnement est immédiat et l’encart propose de l’annuler — l’erreur reste donc réparable en un clic.', 'extender-for-back-in-stock-notifier' ),
+				'id'       => Settings::PREFIX . 'unsubscribe_confirm',
+				'type'     => 'checkbox',
+				'default'  => 'no',
+			),
+			array(
+				'title'    => __( 'Mémoriser les visiteurs', 'extender-for-back-in-stock-notifier' ),
+				'desc'     => __( 'Déposer un cookie pour reconnaître les inscrits non connectés.', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Le cookie ne contient qu’un identifiant aléatoire, jamais l’adresse e-mail. Sans lui, un visiteur non connecté ne peut se désabonner que depuis le lien reçu par e-mail.', 'extender-for-back-in-stock-notifier' ),
+				'id'       => Settings::PREFIX . 'unsubscribe_remember_visitors',
+				'type'     => 'checkbox',
+				'default'  => 'yes',
+			),
+			array(
+				'title'   => __( 'Durée du cookie', 'extender-for-back-in-stock-notifier' ),
+				'desc'    => __( 'jours', 'extender-for-back-in-stock-notifier' ),
+				'id'      => Settings::PREFIX . 'unsubscribe_cookie_days',
+				'type'    => 'number',
+				'default' => VisitorCookie::DEFAULT_LIFETIME_DAYS,
+				'css'     => 'width:100px;',
+			),
+			array(
+				'title'    => __( 'Lien dans les e-mails', 'extender-for-back-in-stock-notifier' ),
+				'desc'     => __( 'Fournir un lien de désabonnement aux gabarits d’e-mail.', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Insérez {unsubscribe_url} ou {cwginstock_unsubscribe} dans vos gabarits. C’est le seul moyen fiable de se désabonner pour une personne sans compte.', 'extender-for-back-in-stock-notifier' ),
+				'id'       => Settings::PREFIX . 'unsubscribe_email_link',
+				'type'     => 'checkbox',
+				'default'  => 'yes',
+			),
+			array(
+				'type' => 'sectionend',
+				'id'   => Settings::PREFIX . 'unsubscribe_options',
+			),
+		);
+	}
+
+	/**
+	 * Texte d'introduction de la section « Désabonnement ».
+	 *
+	 * @return string
+	 */
+	private function unsubscribe_intro(): string {
+		$intro = esc_html__(
+			'Remplace le formulaire d’inscription par un bouton de désabonnement pour qui est déjà inscrit. L’encart n’apparaît que là où l’extension hôte afficherait son formulaire, donc sur un produit indisponible.',
+			'extender-for-back-in-stock-notifier'
+		);
+
+		if ( ! BackInStockNotifier::keeps_subscribed_after_notification() ) {
+			return $intro;
+		}
+
+		return $intro . '<br><strong>' . esc_html__(
+			'Le réglage « Keep Subscription Entry to Subscribed Status » de l’extension hôte est actif : une alerte est renvoyée à chaque réassort tant que l’inscription n’est pas achetée ou désabonnée. Le désabonnement est ici la seule porte de sortie.',
+			'extender-for-back-in-stock-notifier'
+		) . '</strong>';
 	}
 
 	/**

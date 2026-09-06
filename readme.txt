@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.3.2
+Stable tag: 0.4.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -34,6 +34,11 @@ Modules disponibles :
   par déclinaison : de quelles tailles avez-vous besoin, et en quelle quantité ? Recherche,
   tri, pagination et export CSV. L'attribut porté en colonnes est détecté automatiquement,
   et reste modifiable — la même page peut aussi bien répondre par couleur ou par matière.
+* **Désabonnement.** L'extension hôte enregistre le statut « Unsubscribed » et sait le poser
+  depuis son administration, mais n'offre au client aucun moyen de s'en servir. Ce module
+  remplace le formulaire d'inscription par un bouton de désabonnement, et fournit un lien
+  signé aux gabarits d'e-mail — seul recours fiable pour une personne sans compte. Le libellé
+  du bouton et les messages sont réglables.
 * **Synchronisation Brevo** (désactivé par défaut). Pousse les adresses inscrites vers une
   liste Brevo, au fil de l'eau et en rattrapage. Les attributs décrivent l'ensemble des
   produits qu'une personne attend, et sont recalculés à chaque envoi.
@@ -96,6 +101,24 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
 
+= 0.4.0 =
+* Nouveau module « Désabonnement » : le formulaire d'inscription est remplacé par un bouton
+  pour qui est déjà inscrit, et un lien signé est mis à disposition des gabarits d'e-mail.
+* Le libellé du bouton et les deux messages affichés sont réglables.
+* Désabonnement immédiat et annulable en un clic ; une demande de confirmation peut être
+  activée dans les réglages.
+* Le désabonnement porte sur la seule déclinaison affichée : se retirer de la taille 38 ne
+  touche pas la demande sur la taille 40.
+* Les visiteurs non connectés sont reconnus par un cookie ne contenant qu'un identifiant
+  aléatoire, jamais leur adresse e-mail.
+* Le statut quitté est mémorisé même lorsque le désabonnement vient de l'administration de
+  l'extension hôte ou de sa récupération de file : le rétablissement fonctionne dans tous
+  les cas.
+* Plus aucune alerte n'est envoyée à une personne désabonnée, même si son envoi était déjà
+  en file.
+* Le jeton {cwginstock_unsubscribe} est résolu : les gabarits écrits pour l'extension
+  payante « Unsubscribe » fonctionnent sans modification.
+
 = 0.3.2 =
 * Une entrée « Réglages Extender » apparaît dans le menu Instock Notifier, à côté des écrans
   de l'extension. Les réglages restent un onglet de WooCommerce, mais on y accède désormais
@@ -155,6 +178,10 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.4.0 =
+Ajoute le désabonnement côté client. Pensez à insérer {unsubscribe_url} dans vos gabarits
+d'e-mail : c'est le seul moyen de se désabonner pour une personne sans compte.
 
 = 0.3.2 =
 Ajoute un accès aux réglages depuis le menu Instock Notifier. Aucune donnée n'est modifiée.

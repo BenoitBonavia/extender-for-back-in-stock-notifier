@@ -32,7 +32,11 @@ final class NotificationSuppressor {
 	}
 
 	/**
-	 * Bloque l'alerte si l'inscription a été convertie.
+	 * Bloque l'alerte si l'inscription ne doit plus en recevoir.
+	 *
+	 * Deux cas, pour la même raison : l'extension hôte a déjà sélectionné ses
+	 * destinataires quand l'inscription bascule, et changer son statut ne la
+	 * retire pas de la file.
 	 *
 	 * @param bool $stop            Décision des filtres précédents.
 	 * @param int  $subscription_id Inscription destinataire.
@@ -46,14 +50,26 @@ final class NotificationSuppressor {
 
 		$subscription_id = (int) $subscription_id;
 
-		if ( $subscription_id <= 0 || Host::STATUS_CONVERTED !== get_post_status( $subscription_id ) ) {
+		if ( $subscription_id <= 0 ) {
+			return (bool) $stop;
+		}
+
+		$status = (string) get_post_status( $subscription_id );
+
+		$reasons = array(
+			Host::STATUS_CONVERTED    => __( 'le produit a déjà été acheté', 'extender-for-back-in-stock-notifier' ),
+			Host::STATUS_UNSUBSCRIBED => __( 'la personne s’est désabonnée', 'extender-for-back-in-stock-notifier' ),
+		);
+
+		if ( ! isset( $reasons[ $status ] ) ) {
 			return (bool) $stop;
 		}
 
 		Logger::info(
 			sprintf(
-				'Alerte de retour en stock supprimée pour l’inscription #%d : le produit a déjà été acheté.',
-				$subscription_id
+				'Alerte de retour en stock supprimée pour l’inscription #%1$d : %2$s.',
+				$subscription_id,
+				$reasons[ $status ]
 			)
 		);
 

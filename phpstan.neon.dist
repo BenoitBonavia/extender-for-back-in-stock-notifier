@@ -20,14 +20,16 @@ parameters:
         - stubs/plugin-constants.php
         # Action Scheduler est embarqué par WooCommerce, mais absent de ses stubs.
         - stubs/action-scheduler.php
+        # Classes de l'extension hôte réellement appelées, toutes gardées par
+        # class_exists() / method_exists() à l'exécution.
+        - stubs/back-in-stock-notifier.php
     scanDirectories:
         # La bibliothèque de mise à jour est exclue de l'ANALYSE (excludePaths),
         # mais ses classes doivent rester résolvables : buildUpdateChecker()
         # renvoie une union de trois types de vérificateurs.
         - lib/plugin-update-checker/Puc
     treatPhpDocTypesAsCertain: false
-    # Aucun stub n'est fourni pour « Back In Stock Notifier for WooCommerce » :
-    # le plugin ne touche à ses constantes que par constant() sous garde
-    # defined(), et à aucune de ses classes. Dès qu'un module appellera une
-    # classe de l'hôte, ajouter son stub dans stubs/ plutôt que de baisser le
-    # niveau d'analyse.
+    # Les constantes de l'extension hôte restent lues par constant() sous garde
+    # defined(). Ses CLASSES, en revanche, sont désormais appelées — le module
+    # de désabonnement emprunte son API plutôt que d'écrire le statut lui-même —
+    # d'où le stub ci-dessus, préféré à un abaissement du niveau d'analyse.

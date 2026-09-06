@@ -200,6 +200,30 @@ final class BackInStockNotifier {
 	/** `( int $product_id, int $variation_id )` — sous le champ e-mail du formulaire. */
 	public const HOOK_AFTER_EMAIL_FIELD = 'cwg_instock_after_email_field';
 
+	/**
+	 * `( bool $display, WC_Product $product, WC_Product_Variation|array $variation )`.
+	 *
+	 * Renvoyer `false` empêche le rendu du formulaire d'inscription ET fait
+	 * déclencher `HOOK_CUSTOM_FORM` à sa place, une fois que l'hôte a évalué
+	 * toutes ses conditions de visibilité.
+	 */
+	public const HOOK_DISPLAY_FORM = 'cwginstock_display_subscribe_form';
+
+	/**
+	 * `( WC_Product $product, WC_Product_Variation|array $variation )`.
+	 *
+	 * Rendu de remplacement du formulaire, à l'endroit exact où l'hôte aurait
+	 * affiché le sien.
+	 */
+	public const HOOK_CUSTOM_FORM = 'cwginstock_custom_form';
+
+	/**
+	 * `( array $placeholders, int $subscriber_id, WC_Email $email )` — filtre.
+	 *
+	 * Substitutions des gabarits d'e-mail modernes de l'hôte.
+	 */
+	public const HOOK_EMAIL_PLACEHOLDERS = 'cwginstock_email_placeholders';
+
 	/*
 	 * ---------------------------------------------------------------------
 	 * Réglages de l'extension hôte
@@ -219,6 +243,14 @@ final class BackInStockNotifier {
 
 	/** Rétention appliquée par l'hôte quand la valeur n'est pas renseignée. */
 	public const AUTO_DELETE_DEFAULT_DAYS = 7;
+
+	/**
+	 * Clé maintenant les inscrits en attente même après l'envoi de l'alerte.
+	 *
+	 * Le libellé de l'écran parle de « post status subscribed », mais la valeur
+	 * est bien stockée sous ce nom-là.
+	 */
+	public const SETTING_KEEP_SUBSCRIBED = 'keep_status_subscribed';
 
 	/**
 	 * Dossier de surcharge des gabarits, à créer dans le thème.
@@ -367,6 +399,24 @@ final class BackInStockNotifier {
 			: 0;
 
 		return $days > 0 ? $days : self::AUTO_DELETE_DEFAULT_DAYS;
+	}
+
+	/**
+	 * L'hôte renvoie-t-il l'alerte à chaque réassort ?
+	 *
+	 * Quand ce réglage est actif, une inscription reste « en attente » même
+	 * après l'envoi de l'alerte : l'hôte prévient lui-même qu'il notifiera
+	 * « repeatedly […] until the subscribed product is purchased or
+	 * unsubscribed ». Sans possibilité de se désabonner, la personne ne peut
+	 * donc plus jamais faire cesser ces envois.
+	 *
+	 * @return bool
+	 */
+	public static function keeps_subscribed_after_notification(): bool {
+		$settings = self::settings();
+
+		return isset( $settings[ self::SETTING_KEEP_SUBSCRIBED ] )
+			&& '1' === (string) $settings[ self::SETTING_KEEP_SUBSCRIBED ];
 	}
 
 	/**
