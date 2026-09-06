@@ -234,14 +234,18 @@ final class StatsBanner {
 
 		return sprintf(
 			'<div class="ebisn-stats__rate">'
-				. '<span class="ebisn-stat__label">%1$s</span>'
-				. '<strong class="ebisn-stat__value">%2$s&nbsp;%%</strong>'
+				. '<div class="ebisn-stats__rate-head">'
+					. '<span class="ebisn-stat__label">%1$s</span>'
+					. '<strong class="ebisn-stat__value">%2$s&nbsp;%%</strong>'
+				. '</div>'
 				. '<div class="ebisn-meter" aria-hidden="true"><span class="ebisn-meter__fill" style="width:%3$s%%"></span></div>'
 				. '<span class="ebisn-stat__hint">%4$s</span>'
 			. '</div>',
 			esc_html__( 'Taux de conversion', 'extender-for-back-in-stock-notifier' ),
 			esc_html( number_format_i18n( $rate, 1 ) ),
-			esc_attr( (string) round( $width, 2 ) ),
+			// `number_format()` impose le point décimal : jusqu'à PHP 7.4, un
+			// transtypage suit LC_NUMERIC et produirait une largeur invalide.
+			esc_attr( number_format( $width, 2, '.', '' ) ),
 			sprintf(
 				/* translators: 1: nombre de commandes, 2: nombre d'inscrits notifiés. */
 				esc_html__( '%1$s commande(s) sur %2$s inscrit(s) notifié(s)', 'extender-for-back-in-stock-notifier' ),

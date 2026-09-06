@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -91,6 +91,13 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
 
+= 0.2.1 =
+* Le taux de conversion occupe désormais toute la largeur du bandeau : la jauge, plus haute,
+  se lit d'un coup d'œil. Libellé et valeur sont alignés de part et d'autre.
+* Une jauge à taux très faible reste visible au lieu de disparaître.
+* Correction : sous une locale à virgule décimale et en PHP 7.4, la largeur de la jauge
+  pouvait être écrite « 12,3 % » — une valeur que le navigateur ignore.
+
 = 0.2.0 =
 * Nouveau module « Marquer Purchased » : conversion au fil de l'eau et rattrapage automatique
   sur l'historique, avec mémorisation du statut d'origine et annulation en cas de
@@ -116,6 +123,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.2.1 =
+Ajustement d'affichage du bandeau d'indicateurs. Aucune donnée n'est modifiée.
 
 = 0.2.0 =
 Au premier chargement, l'extension rejoue la détection d'achat sur l'historique des commandes
