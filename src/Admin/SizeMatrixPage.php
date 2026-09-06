@@ -178,7 +178,6 @@ final class SizeMatrixPage {
 
 		$this->render_queued_notice();
 		$this->render_stats( $matrix );
-		$this->render_breakdown( $matrix );
 
 		echo '<form method="get">';
 		printf( '<input type="hidden" name="post_type" value="%s" />', esc_attr( Host::SUBSCRIBER_TYPE ) );
@@ -286,52 +285,10 @@ final class SizeMatrixPage {
 		);
 	}
 
-	/**
-	 * Affiche la répartition globale par déclinaison.
-	 *
-	 * Ces totaux portent sur l'ENSEMBLE des demandes, indépendamment de la page
-	 * consultée : des totaux limités à la page affichée sous un tableau paginé
-	 * se lisent presque toujours de travers.
-	 *
-	 * @param array<string, mixed> $matrix Matrice.
+	/*
+	 * La répartition par déclinaison est rendue par SizeMatrixTable, dans le
+	 * pied du tableau : chaque barre se place ainsi sous sa propre colonne.
 	 */
-	private function render_breakdown( array $matrix ): void {
-		$columns = (array) $matrix['columns'];
-
-		if ( ! empty( $matrix['has_undefined'] ) ) {
-			$columns[] = AttributeResolver::UNDEFINED;
-		}
-
-		if ( count( $columns ) < 2 ) {
-			return;
-		}
-
-		$peak = max( array_map( 'intval', array_values( (array) $matrix['totals'] ) ) );
-
-		echo '<div class="ebisn-breakdown">';
-		echo '<h2 class="ebisn-breakdown__title">'
-			. esc_html__( 'Répartition, toutes pages confondues', 'extender-for-back-in-stock-notifier' )
-			. '</h2>';
-		echo '<ul class="ebisn-breakdown__list">';
-
-		foreach ( $columns as $value ) {
-			$count = (int) ( $matrix['totals'][ $value ] ?? 0 );
-			$share = $peak > 0 ? $count / $peak : 0;
-
-			printf(
-				'<li class="ebisn-breakdown__item">'
-					. '<span class="ebisn-breakdown__bar" aria-hidden="true"><span style="height:%1$s%%"></span></span>'
-					. '<span class="ebisn-breakdown__count">%2$s</span>'
-					. '<span class="ebisn-breakdown__label">%3$s</span>'
-				. '</li>',
-				esc_attr( number_format( $share * 100, 2, '.', '' ) ),
-				esc_html( number_format_i18n( $count ) ),
-				esc_html( (string) ( $matrix['labels'][ $value ] ?? $value ) )
-			);
-		}
-
-		echo '</ul></div>';
-	}
 
 	/**
 	 * Affiche la note de bas de page.

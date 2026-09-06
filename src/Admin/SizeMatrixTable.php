@@ -65,6 +65,20 @@ final class SizeMatrixTable extends \WP_List_Table {
 	private $peak = 0;
 
 	/**
+	 * Totaux par colonne, sur les lignes filtrées et toutes pages confondues.
+	 *
+	 * @var array<string, int>
+	 */
+	private $column_sums = array();
+
+	/**
+	 * Total général des lignes filtrées.
+	 *
+	 * @var int
+	 */
+	private $filtered_total = 0;
+
+	/**
 	 * Constructeur.
 	 *
 	 * @param array<string, mixed> $matrix Matrice complète.
@@ -157,6 +171,11 @@ final class SizeMatrixTable extends \WP_List_Table {
 		$rows = $this->filter_rows( (array) $this->matrix['rows'] );
 
 		$this->peak = $this->compute_peak( $rows );
+
+		// Les totaux du pied portent sur les lignes RETENUES, toutes pages
+		// confondues : ils suivent donc la recherche et le filtre, mais ne
+		// rétrécissent pas quand on tourne la page.
+		$this->compute_sums( $rows );
 
 		$rows = $this->sort_rows( $rows );
 
@@ -258,6 +277,24 @@ final class SizeMatrixTable extends \WP_List_Table {
 	}
 
 	/**
+	 * Additionne les demandes par colonne sur les lignes retenues.
+	 *
+	 * @param array<int, array<string, mixed>> $rows Lignes filtrées.
+	 */
+	private function compute_sums( array $rows ): void {
+		$this->column_sums    = array();
+		$this->filtered_total = 0;
+
+		foreach ( $rows as $row ) {
+			$this->filtered_total += (int) $row['total'];
+
+			foreach ( (array) $row['cells'] as $value => $cell ) {
+				$this->column_sums[ $value ] = ( $this->column_sums[ $value ] ?? 0 ) + (int) $cell['count'];
+			}
+		}
+	}
+
+	/**
 	 * Trie les lignes selon la colonne demandée.
 	 *
 	 * @param array<int, array<string, mixed>> $rows Lignes.
@@ -302,6 +339,83 @@ final class SizeMatrixTable extends \WP_List_Table {
 		);
 
 		return $rows;
+	}
+
+	/**
+	 * Affiche le tableau, pied de répartition compris.
+	 *
+	 * Reprend la structure de `WP_List_Table::display()` en ne changeant qu'une
+	 * chose : le pied, qui répète les en-têtes par défaut, porte ici la
+	 * répartition des demandes. Chaque barre se trouve ainsi SOUS sa colonne,
+	 * ce qui évite d'avoir à faire correspondre des libellés répétés ailleurs.
+	 */
+	public function display(): void {
+		$this->display_tablenav( 'top' );
+
+		$this->screen->render_screen_reader_content( 'heading_list' );
+
+		printf(
+			'<table class="wp-list-table %s">',
+			esc_attr( implode( ' ', $this->get_table_classes() ) )
+		);
+
+		echo '<thead><tr>';
+		$this->print_column_headers();
+		echo '</tr></thead>';
+
+		printf( '<tbody id="the-list" data-wp-lists="list:%s">', esc_attr( $this->_args['singular'] ) );
+		$this->display_rows_or_placeholder();
+		echo '</tbody>';
+
+		$this->display_totals_row();
+
+		echo '</table>';
+
+		$this->display_tablenav( 'bottom' );
+	}
+
+	/**
+	 * Affiche le pied de répartition.
+	 */
+	private function display_totals_row(): void {
+		if ( empty( $this->items ) ) {
+			return;
+		}
+
+		$peak = $this->column_sums ? max( $this->column_sums ) : 0;
+
+		echo '<tfoot><tr class="ebisn-matrix__totals">';
+
+		printf(
+			'<th scope="row" class="column-%1$s">%2$s<span class="ebisn-matrix__scope">%3$s</span></th>',
+			esc_attr( self::PRODUCT_COLUMN ),
+			esc_html__( 'Répartition', 'extender-for-back-in-stock-notifier' ),
+			esc_html__( 'toutes pages', 'extender-for-back-in-stock-notifier' )
+		);
+
+		foreach ( $this->column_values as $key => $value ) {
+			$count  = (int) ( $this->column_sums[ $value ] ?? 0 );
+			$height = $peak > 0 ? ( $count / $peak ) * 100 : 0;
+
+			printf(
+				'<td class="column-%1$s">'
+					. '<span class="ebisn-matrix__bar" aria-hidden="true"><span style="height:%2$s%%"></span></span>'
+					. '<span class="ebisn-matrix__sum">%3$s</span>'
+				. '</td>',
+				esc_attr( $key ),
+				// Point décimal imposé : un transtypage suivrait la locale.
+				esc_attr( number_format( $height, 2, '.', '' ) ),
+				esc_html( number_format_i18n( $count ) )
+			);
+		}
+
+		printf(
+			'<td class="column-%1$s"><span class="ebisn-matrix__sum">%2$s</span></td>',
+			esc_attr( self::TOTAL_COLUMN ),
+			esc_html( number_format_i18n( $this->filtered_total ) )
+		);
+
+		echo '</tr></tfoot>';
 	}
 
 	/**

@@ -185,73 +185,60 @@
  * d'équivalent dans l'administration.
  * ---------------------------------------------------------------------- */
 
-.ebisn-stats + .ebisn-breakdown {
-	margin-top: -4px;
+/*
+ * Pied de tableau : la répartition par déclinaison.
+ *
+ * Chaque barre se trouve sous SA colonne — c'est tout l'intérêt de la placer
+ * là plutôt que dans un encart séparé, où il faudrait relire les libellés pour
+ * savoir à quoi chaque barre se rapporte.
+ */
+.ebisn-matrix__totals th,
+.ebisn-matrix__totals td {
+	vertical-align: bottom;
+	border-top: 1px solid #c3c4c7;
+	padding-top: 10px;
 }
 
-.ebisn-breakdown {
-	margin: 0 0 16px;
-}
-
-.ebisn-breakdown__title {
-	margin: 0 0 8px;
-	font-size: 13px;
-	font-weight: 600;
+.ebisn-matrix__totals th {
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
 	color: #50575e;
 }
 
-.ebisn-breakdown__list {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 4px;
-	align-items: flex-end;
-	margin: 0;
-	padding: 12px 14px;
-	background: #fff;
-	border: 1px solid #dcdcde;
-	border-radius: 8px;
-	list-style: none;
-}
-
-.ebisn-breakdown__item {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 3px;
-	min-width: 46px;
-	margin: 0;
-	flex: 1 1 46px;
-}
-
-/* La barre est ancrée en bas : c'est la comparaison des hauteurs qui porte
-   l'information, pas leur position. */
-.ebisn-breakdown__bar {
-	display: flex;
-	align-items: flex-end;
-	width: 100%;
-	height: 44px;
-}
-
-.ebisn-breakdown__bar > span {
+.ebisn-matrix__scope {
 	display: block;
-	width: 100%;
+	font-size: 11px;
+	font-weight: 400;
+	text-transform: none;
+	letter-spacing: 0;
+	color: #787c82;
+}
+
+/* Ancrée en bas : c'est la comparaison des hauteurs qui porte l'information. */
+.ebisn-matrix__bar {
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	height: 34px;
+	margin-bottom: 4px;
+}
+
+.ebisn-matrix__bar > span {
+	display: block;
+	width: 60%;
+	min-width: 8px;
 	min-height: 2px;
 	background: var( --wp-admin-theme-color, #3858e9 );
 	border-radius: 2px 2px 0 0;
-	opacity: 0.75;
+	opacity: 0.7;
 }
 
-.ebisn-breakdown__count {
+.ebisn-matrix__sum {
+	display: block;
 	font-size: 12px;
 	font-weight: 600;
 	font-variant-numeric: tabular-nums;
-}
-
-.ebisn-breakdown__label {
-	font-size: 11px;
-	color: #50575e;
-	text-align: center;
-	overflow-wrap: anywhere;
 }
 
 /* Colonnes de déclinaison : étroites, centrées, chiffres alignés. */

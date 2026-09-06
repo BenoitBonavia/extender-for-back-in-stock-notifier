@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.3.0
+Stable tag: 0.3.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -95,6 +95,13 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
 
+= 0.3.1 =
+* La répartition par déclinaison revient dans le pied du tableau, chaque barre
+  sous sa propre colonne, au lieu d'un encart séparé où il fallait relire les
+  libellés pour s'y retrouver.
+* Ces totaux suivent désormais la recherche et le filtre en cours, tout en
+  restant calculés sur l'ensemble des pages.
+
 = 0.3.0 =
 * Nouveau module « Demandes par taille » : écran croisant les demandes de retour en stock
   par produit et par déclinaison, avec recherche, tri, pagination, export CSV et carte de
@@ -142,6 +149,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.3.1 =
+Ajustement d'affichage de l'écran « Demandes par taille ». Aucune donnée n'est modifiée.
 
 = 0.3.0 =
 Ajoute l'écran « Demandes par taille ». Si vous utilisiez le snippet correspondant,

@@ -3,7 +3,7 @@
  * Plugin Name:          Extender for Back In Stock Notifier
  * Plugin URI:           https://github.com/benoitbonavia/extender-for-back-in-stock-notifier
  * Description:          Étend « Back In Stock Notifier for WooCommerce » : règles et automatismes supplémentaires regroupés dans une extension unique plutôt que dans des snippets épars.
- * Version:              0.3.0
+ * Version:              0.3.1
  * Requires at least:    6.8
  * Requires PHP:         7.4
  * Requires Plugins:     woocommerce, back-in-stock-notifier-for-woocommerce
@@ -24,7 +24,7 @@ namespace EBISN;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'EBISN_VERSION', '0.3.0' );
+define( 'EBISN_VERSION', '0.3.1' );
 define( 'EBISN_FILE', __FILE__ );
 define( 'EBISN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'EBISN_URL', plugin_dir_url( __FILE__ ) );
