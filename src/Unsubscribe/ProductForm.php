@@ -63,6 +63,17 @@ final class ProductForm {
 	private $found = array();
 
 	/**
+	 * Décisions prises par le filtre d'affichage, par produit interrogé.
+	 *
+	 * Sert au diagnostic : comparer ce que le filtre a décidé à ce que la page
+	 * affiche réellement est le seul moyen de distinguer « le filtre n'a pas
+	 * trouvé » de « le filtre n'a pas été consulté ».
+	 *
+	 * @var array<int, bool>
+	 */
+	private $decisions = array();
+
+	/**
 	 * Constructeur.
 	 *
 	 * @param UnsubscribeService $service Service de désabonnement.
@@ -116,10 +127,36 @@ final class ProductForm {
 		}
 
 		printf(
-			'<p class="ebisn-unsubscribe__hint"><strong>%1$s</strong> %2$s</p>',
+			'<p class="ebisn-unsubscribe__hint"><strong>%1$s</strong> %2$s · %3$s</p>',
 			esc_html__( 'Extender — visible par vous seul·e :', 'extender-for-back-in-stock-notifier' ),
-			esc_html( $this->locator->explain( $target ) )
+			esc_html( $this->locator->explain( $target ) ),
+			esc_html( $this->explain_decision( $target ) )
 		);
+	}
+
+	/**
+	 * Décrit ce que le filtre d'affichage a décidé pour ce produit.
+	 *
+	 * @param int $target Produit interrogé par la note.
+	 *
+	 * @return string
+	 */
+	private function explain_decision( int $target ): string {
+		if ( array() === $this->decisions ) {
+			return __( 'filtre d’affichage jamais consulté — le formulaire vient d’ailleurs', 'extender-for-back-in-stock-notifier' );
+		}
+
+		if ( ! array_key_exists( $target, $this->decisions ) ) {
+			return sprintf(
+				/* translators: %s: liste d'identifiants de produits. */
+				__( 'filtre consulté pour d’autres produits (%s), pas pour celui-ci', 'extender-for-back-in-stock-notifier' ),
+				implode( ', ', array_map( 'strval', array_keys( $this->decisions ) ) )
+			);
+		}
+
+		return $this->decisions[ $target ]
+			? __( 'filtre : formulaire laissé visible', 'extender-for-back-in-stock-notifier' )
+			: __( 'filtre : formulaire demandé masqué, mais l’extension hôte l’affiche quand même', 'extender-for-back-in-stock-notifier' );
 	}
 
 	/**
@@ -142,9 +179,10 @@ final class ProductForm {
 			return true;
 		}
 
-		$this->found[ $target ] = $this->locator->find_for_current_visitor( $target );
+		$this->found[ $target ]     = $this->locator->find_for_current_visitor( $target );
+		$this->decisions[ $target ] = empty( $this->found[ $target ] );
 
-		return empty( $this->found[ $target ] );
+		return $this->decisions[ $target ];
 	}
 
 	/**
