@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.3.1
+Stable tag: 0.3.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -50,7 +50,8 @@ directement dans l'écran Extensions de WordPress.
 2. Téléverser l'archive depuis Extensions → Ajouter → Téléverser une extension.
 3. Activer l'extension. WordPress refuse l'activation tant que les deux dépendances
    ne sont pas actives.
-4. Configurer depuis WooCommerce → Réglages → Extender BIS.
+4. Configurer depuis Instock Notifier → Réglages Extender, ou directement dans
+   WooCommerce → Réglages → Extender BIS.
 
 == Frequently Asked Questions ==
 
@@ -94,6 +95,11 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.3.2 =
+* Une entrée « Réglages Extender » apparaît dans le menu Instock Notifier, à côté des écrans
+  de l'extension. Les réglages restent un onglet de WooCommerce, mais on y accède désormais
+  depuis le menu où l'on travaille.
 
 = 0.3.1 =
 * La répartition par déclinaison revient dans le pied du tableau, chaque barre
@@ -149,6 +155,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.3.2 =
+Ajoute un accès aux réglages depuis le menu Instock Notifier. Aucune donnée n'est modifiée.
 
 = 0.3.1 =
 Ajustement d'affichage de l'écran « Demandes par taille ». Aucune donnée n'est modifiée.

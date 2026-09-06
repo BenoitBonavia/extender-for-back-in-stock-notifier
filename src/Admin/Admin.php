@@ -7,6 +7,8 @@
 
 namespace EBISN\Admin;
 
+use EBISN\Integration\BackInStockNotifier;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -26,6 +28,32 @@ final class Admin {
 		add_filter( 'woocommerce_get_settings_pages', array( $this, 'add_settings_page' ) );
 		add_filter( 'plugin_action_links_' . EBISN_BASENAME, array( $this, 'add_action_links' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+
+		// Priorité 25 : après les écrans des modules, qui s'ajoutent en 20.
+		add_action( 'admin_menu', array( $this, 'add_settings_shortcut' ), 25 );
+	}
+
+	/**
+	 * Ajoute un raccourci vers les réglages dans le menu de l'extension hôte.
+	 *
+	 * Les écrans de ce plugin vivent sous « Instock Notifier », mais ses
+	 * réglages sont un onglet de WooCommerce — c'est là que WooCommerce attend
+	 * les réglages d'une extension, et cela évite un énième menu de premier
+	 * niveau. Restait que rien ne reliait les deux : ce raccourci s'en charge.
+	 *
+	 * Le slug est ici une URL et non un identifiant de page : WordPress le
+	 * reconnaît et produit un simple lien, sans callback de rendu. C'est le
+	 * mécanisme qu'emploie l'extension hôte elle-même pour son écran
+	 * « Estimate Stock Arrival ».
+	 */
+	public function add_settings_shortcut(): void {
+		add_submenu_page(
+			BackInStockNotifier::MENU_PARENT,
+			__( 'Réglages Extender', 'extender-for-back-in-stock-notifier' ),
+			__( 'Réglages Extender', 'extender-for-back-in-stock-notifier' ),
+			'manage_woocommerce',
+			'admin.php?page=wc-settings&tab=' . self::SETTINGS_TAB
+		);
 	}
 
 	/**
