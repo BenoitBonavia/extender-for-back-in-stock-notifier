@@ -16,12 +16,18 @@ defined( 'ABSPATH' ) || exit;
  * alerte de retour en stock est proposée.
  *
  * Afficher les deux n'a pas de sens : on ne peut pas à la fois commander un
- * produit et demander à être prévenu de son retour. Sur un produit décliné, le
- * bloc reste pourtant visible — souvent grisé — alors que la seule action
- * possible est de s'inscrire à l'alerte.
+ * produit et demander à être prévenu de son retour.
  *
- * Désactivé par défaut : le module modifie une page publique, ce qu'aucune
- * mise à jour ne devrait faire sans qu'on l'ait demandé.
+ * La règle appliquée est littéralement celle-là — « une alerte est proposée,
+ * donc pas de panier » — et non « le produit est en rupture ». La nuance
+ * compte : l'extension hôte n'affiche pas son formulaire dans tous les cas de
+ * rupture, et l'affiche parfois hors rupture. Ses conditions sont au nombre
+ * d'une dizaine (catégories, étiquettes, prix, réassort, visiteurs connectés ou
+ * non, produits exclus…), et les redupliquer garantissait de diverger tôt ou
+ * tard. On lit donc ce qu'elle a RÉELLEMENT produit.
+ *
+ * Désactivé par défaut : le module modifie une page publique, ce qu'aucune mise
+ * à jour ne devrait faire sans qu'on l'ait demandé.
  */
 final class HideAddToCart extends AbstractModule {
 
@@ -40,6 +46,18 @@ final class HideAddToCart extends AbstractModule {
 	protected $enabled_by_default = false;
 
 	/**
+	 * Empreintes du balisage produit par l'extension hôte, ou par ce plugin.
+	 *
+	 * Trois cas : le formulaire d'inscription, le bouton d'ouverture de la
+	 * fenêtre modale, et notre encart de désabonnement.
+	 */
+	private const MARKERS = array(
+		'cwginstock-subscribe-form',
+		'cwg_popup_submit',
+		'ebisn-unsubscribe',
+	);
+
+	/**
 	 * {@inheritDoc}
 	 */
 	public function get_title(): string {
@@ -53,18 +71,17 @@ final class HideAddToCart extends AbstractModule {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
 		/*
-		 * Priorité 1 : le retrait doit précéder le rendu du résumé produit, où
-		 * WooCommerce déclenche `woocommerce_{type}_add_to_cart`.
+		 * Priorité 1000 : après le 999 de l'extension hôte, qui injecte là son
+		 * formulaire dans `availability_html`. C'est ce HTML que l'on inspecte.
 		 */
+		add_filter( 'woocommerce_available_variation', array( $this, 'flag_variation' ), 1000, 3 );
+
+		// Priorité 1 : avant le rendu du résumé produit.
 		add_action( 'woocommerce_before_single_product_summary', array( $this, 'maybe_remove_simple_form' ), 1 );
 	}
 
 	/**
-	 * Charge la feuille de styles sur les fiches produit.
-	 *
-	 * Le cas des déclinaisons se traite entièrement en CSS : WooCommerce marque
-	 * déjà le bloc d'ajout au panier d'une classe dédiée dès que la déclinaison
-	 * choisie n'est pas achetable.
+	 * Charge les ressources sur les fiches produit.
 	 */
 	public function enqueue_assets(): void {
 		if ( ! function_exists( 'is_product' ) || ! is_product() ) {
@@ -77,6 +94,68 @@ final class HideAddToCart extends AbstractModule {
 			array(),
 			EBISN_VERSION
 		);
+
+		wp_enqueue_script(
+			'ebisn-hide-add-to-cart',
+			EBISN_URL . 'assets/js/hide-add-to-cart.js',
+			array( 'jquery' ),
+			EBISN_VERSION,
+			array(
+				'in_footer' => true,
+				'strategy'  => 'defer',
+			)
+		);
+	}
+
+	/**
+	 * Signale au script les déclinaisons proposant une alerte.
+	 *
+	 * @param array<string, mixed> $data      Données de la déclinaison.
+	 * @param mixed                $product   Produit parent.
+	 * @param mixed                $variation Déclinaison.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function flag_variation( $data, $product, $variation ): array {
+		unset( $product, $variation );
+
+		$data = (array) $data;
+
+		$html = isset( $data['availability_html'] ) ? (string) $data['availability_html'] : '';
+
+		$data['ebisn_alert'] = self::contains_alert( $html );
+
+		return $data;
+	}
+
+	/**
+	 * Le balisage contient-il une alerte de retour en stock ?
+	 *
+	 * @param string $html Balisage à inspecter.
+	 *
+	 * @return bool
+	 */
+	private static function contains_alert( string $html ): bool {
+		if ( '' === $html ) {
+			return false;
+		}
+
+		foreach ( self::MARKERS as $marker ) {
+			if ( false !== strpos( $html, $marker ) ) {
+				return true;
+			}
+		}
+
+		/**
+		 * Balisage d'une déclinaison portant une alerte de retour en stock.
+		 *
+		 * Point d'extension pour un gabarit d'alerte entièrement réécrit, dont
+		 * aucune des empreintes connues ne subsisterait.
+		 *
+		 * @param bool   $found Résultat de la détection.
+		 * @param string $html  Balisage inspecté.
+		 */
+		return (bool) apply_filters( 'ebisn_variation_has_alert', false, $html );
 	}
 
 	/**
@@ -85,13 +164,12 @@ final class HideAddToCart extends AbstractModule {
 	 * Un produit simple en rupture n'affiche déjà rien : WooCommerce s'en
 	 * charge. Reste le cas des commandes en attente de réapprovisionnement, où
 	 * le produit demeure achetable — et où l'extension hôte propose malgré tout
-	 * son alerte si le marchand l'a réglé ainsi. C'est ce cas, et lui seul, qui
-	 * demande une intervention côté serveur.
+	 * son alerte si le marchand l'a réglé ainsi.
 	 */
 	public function maybe_remove_simple_form(): void {
 		global $product;
 
-		if ( ! $product instanceof \WC_Product || ! $product->is_type( 'simple' ) ) {
+		if ( ! $product instanceof \WC_Product || $product->is_type( 'variable' ) ) {
 			return;
 		}
 

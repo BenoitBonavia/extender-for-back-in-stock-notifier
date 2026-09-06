@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.5.0
+Stable tag: 0.5.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -102,6 +102,12 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.5.1 =
+* Correction : le bouton de commande restait visible sur certains thèmes. Le masquage ne
+  repose plus sur une classe de WooCommerce, mais sur la présence effective du formulaire
+  d'alerte dans le balisage de la déclinaison — la règle appliquée est donc exactement
+  « une alerte est proposée, donc pas de panier ».
 
 = 0.5.0 =
 * Nouveau module « Masquer l'ajout au panier », désactivé par défaut : retire le sélecteur
@@ -230,6 +236,9 @@ La vérification automatique a lieu au plus toutes les 12 heures.
 * Mises à jour automatiques depuis GitHub.
 
 == Upgrade Notice ==
+
+= 0.5.1 =
+Corrige le masquage de l'ajout au panier sur les thèmes personnalisés.
 
 = 0.5.0 =
 Ajoute un module facultatif masquant l'ajout au panier des produits indisponibles.
