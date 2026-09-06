@@ -21,10 +21,11 @@ defined( 'ABSPATH' ) || exit;
  * cette voie, et l'emprunter laisse passer `transition_post_status`, donc ses
  * webhooks.
  *
- * La métadonnée `cwginstock_mail_on` n'est JAMAIS effacée au passage. C'est elle
- * qui garde la trace qu'une alerte a déjà été envoyée, et c'est sur elle que
- * repose le taux de conversion : l'effacer ferait sortir la personne du
- * dénominateur à chaque cycle, et le taux remonterait tout seul.
+ * La métadonnée `cwginstock_mail_on` n'est JAMAIS effacée au passage — elle est
+ * même écrite si elle manquait. C'est elle qui garde la trace qu'une alerte a
+ * déjà été envoyée, et c'est sur elle que repose le taux de conversion : la
+ * perdre ferait sortir la personne du dénominateur à chaque cycle, et le taux
+ * remonterait tout seul.
  */
 final class RenotifyService {
 
@@ -88,6 +89,8 @@ final class RenotifyService {
 			return false;
 		}
 
+		$this->preserve_notified_trace( $subscription_id );
+
 		if ( ! $this->write_status( $subscription_id ) ) {
 			return false;
 		}
@@ -104,6 +107,43 @@ final class RenotifyService {
 		do_action( 'ebisn_subscription_renotified', $subscription_id, $cycles + 1 );
 
 		return true;
+	}
+
+	/**
+	 * Garantit qu'une trace de l'alerte déjà envoyée subsistera après la bascule.
+	 *
+	 * L'extension hôte n'a pas toujours horodaté ses envois : elle-même retombe
+	 * sur `post_modified_gmt` dans sa colonne « Instock Mail On » quand la
+	 * métadonnée manque, ce qui atteste que de telles inscriptions existent. Or
+	 * ce repli disparaît avec le statut « Alerte envoyée », et la remise en
+	 * attente le fait disparaître.
+	 *
+	 * Sans cette précaution, une inscription notifiée avant que l'hôte n'écrive
+	 * cette métadonnée sortirait définitivement du taux de conversion à sa
+	 * première renotification — et son achat éventuel ne compterait plus.
+	 *
+	 * L'horodatage est lu AVANT le changement de statut : `wp_update_post()`
+	 * réécrit `post_modified_gmt` à la date du jour.
+	 *
+	 * @param int $subscription_id Inscription.
+	 */
+	private function preserve_notified_trace( int $subscription_id ): void {
+		$stamp = get_post_meta( $subscription_id, Host::META_MAIL_ON, true );
+
+		if ( is_scalar( $stamp ) && (int) $stamp > 0 ) {
+			return;
+		}
+
+		$post     = get_post( $subscription_id );
+		$modified = $post instanceof \WP_Post
+			? (int) strtotime( $post->post_modified_gmt . ' UTC' )
+			: 0;
+
+		update_post_meta(
+			$subscription_id,
+			Host::META_MAIL_ON,
+			$modified > 0 ? $modified : time()
+		);
 	}
 
 	/**

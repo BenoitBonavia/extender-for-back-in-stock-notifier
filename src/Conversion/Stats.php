@@ -126,26 +126,37 @@ final class Stats {
 	 * Une inscription jamais notifiée n'entre dans aucun des deux termes : elle
 	 * n'a pas encore eu l'occasion de commander.
 	 *
+	 * Le statut « Alerte envoyée » vaut aussi preuve d'envoi : l'hôte n'a pas
+	 * toujours horodaté les siens, et retombe lui-même sur `post_modified_gmt`
+	 * dans sa colonne quand la métadonnée manque. Ces inscriptions anciennes
+	 * resteraient sinon hors du calcul.
+	 *
 	 * @return array{total:int, converted:int}
 	 */
 	private static function notified_funnel(): array {
 		global $wpdb;
 
+		/*
+		 * `COUNT( DISTINCT p.ID )` et non `COUNT(*)` : la jointure est ouverte,
+		 * et une clé de métadonnée dupliquée — ce que rien n'interdit en base —
+		 * compterait deux fois la même inscription.
+		 */
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- résultat mis en cache par l'appelant.
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT COUNT(*) AS total,
-						SUM( CASE WHEN p.post_status = %s THEN 1 ELSE 0 END ) AS converted
+				"SELECT COUNT( DISTINCT p.ID ) AS total,
+						COUNT( DISTINCT CASE WHEN p.post_status = %s THEN p.ID END ) AS converted
 				   FROM {$wpdb->posts} p
-				  INNER JOIN {$wpdb->postmeta} m
+				   LEFT JOIN {$wpdb->postmeta} m
 						  ON m.post_id = p.ID
 						 AND m.meta_key = %s
 				  WHERE p.post_type = %s
 					AND p.post_status NOT IN ( 'trash', 'auto-draft' )
-					AND m.meta_value <> ''",
+					AND ( COALESCE( m.meta_value, '' ) <> '' OR p.post_status = %s )",
 				Host::STATUS_CONVERTED,
 				Host::META_MAIL_ON,
-				Host::SUBSCRIBER_TYPE
+				Host::SUBSCRIBER_TYPE,
+				Host::STATUS_MAILSENT
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
