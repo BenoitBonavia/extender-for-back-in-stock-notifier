@@ -1,0 +1,29 @@
+/**
+ * Styles d'administration – Extender for Back In Stock Notifier.
+ */
+
+.ebisn-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	line-height: 1.6;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+
+.ebisn-badge--ok {
+	background: #edfaef;
+	color: #00450c;
+}
+
+.ebisn-badge--warning {
+	background: #fcf9e8;
+	color: #674600;
+}
+
+.ebisn-badge--error {
+	background: #fcf0f1;
+	color: #8a2424;
+}

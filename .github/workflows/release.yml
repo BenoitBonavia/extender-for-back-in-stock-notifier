@@ -1,0 +1,49 @@
+name: Release
+
+# Publie une release GitHub avec l'archive du plugin en pièce jointe.
+#
+# Le vérificateur de mises à jour embarqué dans le plugin cherche, dans la
+# dernière release, un fichier attaché dont le nom se termine par « .zip ».
+# Sans pièce jointe, il retomberait sur l'archive source générée par GitHub.
+#
+# Déclenchement : pousser un tag « vX.Y.Z » dont le numéro correspond
+# EXACTEMENT à l'en-tête « Version: » du fichier principal.
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Construire et publier
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+        with:
+          # `git archive` a besoin de l'historique et du tag en local.
+          fetch-depth: 0
+
+      - name: Construire l'archive
+        id: build
+        run: |
+          # --expect échoue si le tag et l'en-tête Version divergent : c'est le
+          # garde-fou contre une release qui ne déclencherait aucune mise à jour.
+          bash bin/build-plugin-zip.sh \
+            --ref "${GITHUB_REF_NAME}" \
+            --out dist \
+            --expect "${GITHUB_REF_NAME#v}"
+
+      - name: Publier la release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true

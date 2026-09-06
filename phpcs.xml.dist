@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<ruleset name="Extender for Back In Stock Notifier">
+	<description>Règles de codage WordPress appliquées au plugin.</description>
+
+	<file>.</file>
+
+	<exclude-pattern>/vendor/*</exclude-pattern>
+	<exclude-pattern>/node_modules/*</exclude-pattern>
+	<exclude-pattern>/dist/*</exclude-pattern>
+	<!-- Bibliothèque tierce embarquée telle quelle : ne pas la reformater. -->
+	<exclude-pattern>/lib/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+
+	<rule ref="WordPress">
+		<!-- Le plugin utilise des namespaces PSR-4 plutôt que class-*.php. -->
+		<exclude name="WordPress.Files.FileName"/>
+	</rule>
+
+	<config name="minimum_wp_version" value="6.8"/>
+	<config name="testVersion" value="7.4-"/>
+
+	<rule ref="PHPCompatibilityWP"/>
+
+	<!--
+		Valeurs passées par <element>, et non en chaîne séparée par des virgules :
+		cette seconde forme est dépréciée depuis PHP_CodeSniffer 3.3 et disparaît
+		en 4.0. Elle produit un avertissement à chaque exécution.
+	-->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="extender-for-back-in-stock-notifier"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="ebisn"/>
+				<element value="EBISN"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>

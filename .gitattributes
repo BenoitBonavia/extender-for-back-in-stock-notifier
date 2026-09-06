@@ -1,0 +1,31 @@
+# Fichiers exclus des archives produites par `git archive` (et des archives
+# « Source code » générées par GitHub). Ils n'ont aucune raison d'être livrés
+# dans l'extension installée.
+#
+# Ne JAMAIS exclure : readme.txt (lu par le vérificateur de mises à jour pour la
+# fiche « Voir les détails »), assets/, languages/, lib/, src/.
+
+/.github/           export-ignore
+/.gitattributes     export-ignore
+/.gitignore         export-ignore
+/.idea/             export-ignore
+/bin/               export-ignore
+/composer.json      export-ignore
+/composer.lock      export-ignore
+/phpcs.xml.dist     export-ignore
+/phpstan.neon.dist  export-ignore
+/README.md          export-ignore
+# Déclarations pour l'analyse statique, jamais chargées à l'exécution.
+/stubs/             export-ignore
+
+# Normalisation des fins de ligne.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.gif binary
+*.mo  binary
+
+# La bibliothèque embarquée est une copie amont non modifiée : aucune conversion
+# de fin de ligne, sans quoi ses fichiers .po divergeraient de l'original et
+# chaque mise à jour de la lib produirait un diff parasite.
+lib/** -text
