@@ -24,9 +24,12 @@ final class SubscriptionQuery {
 	 * « produit parent » notifiés via une déclinaison précise. Sans ce second
 	 * cas, ces personnes ne seraient jamais reprises.
 	 *
-	 * Les inscriptions ayant épuisé leur quota de renotifications sont écartées
-	 * ici, et non à l'écriture : restées en tête du tri, elles occuperaient
-	 * indéfiniment le lot et empêcheraient les suivantes d'être vues.
+	 * Les inscriptions ayant épuisé leur quota de renotifications ne sont PAS
+	 * écartées ici : `RenotifyService::process()` doit les voir pour les
+	 * désabonner. C'est précisément ce désabonnement qui les fait sortir de ce
+	 * jeu de résultats — leur statut change, elles ne reviendraient donc pas
+	 * occuper indéfiniment la tête du tri comme le ferait une inscription
+	 * simplement écartée sans être soldée.
 	 *
 	 * @param int $product_id Produit ou déclinaison passé en rupture.
 	 * @param int $limit      Nombre maximal d'inscriptions retournées.
@@ -42,37 +45,20 @@ final class SubscriptionQuery {
 			return array();
 		}
 
-		$max    = RenotifyService::max_cycles();
-		$values = array( Host::META_PID, Host::META_BYPASS_PID );
-		$join   = '';
-		$cap    = '';
-
-		if ( $max > 0 ) {
-			$join     = " LEFT JOIN {$wpdb->postmeta} cycles
-						 ON cycles.post_id = p.ID
-						AND cycles.meta_key = %s";
-			$cap      = " AND CAST( COALESCE( NULLIF( cycles.meta_value, '' ), '0' ) AS UNSIGNED ) < %d";
-			$values[] = RenotifyService::META_CYCLES;
-		}
-
 		$sql = "SELECT DISTINCT p.ID
 				  FROM {$wpdb->posts} p
 				 INNER JOIN {$wpdb->postmeta} pid
 						 ON pid.post_id = p.ID
 						AND pid.meta_key IN ( %s, %s )
-				 {$join}
 				 WHERE p.post_type = %s
 				   AND pid.meta_value = %d
-				   AND p.post_status IN ( " . implode( ', ', array_fill( 0, count( $statuses ), '%s' ) ) . " )
-				   {$cap}
+				   AND p.post_status IN ( " . implode( ', ', array_fill( 0, count( $statuses ), '%s' ) ) . ' )
 				 ORDER BY p.ID ASC
-				 LIMIT %d";
+				 LIMIT %d';
 
 		$values = array_merge(
-			$values,
-			array( Host::SUBSCRIBER_TYPE, $product_id ),
+			array( Host::META_PID, Host::META_BYPASS_PID, Host::SUBSCRIBER_TYPE, $product_id ),
 			$statuses,
-			$max > 0 ? array( $max ) : array(),
 			array( max( 1, $limit ) )
 		);
 

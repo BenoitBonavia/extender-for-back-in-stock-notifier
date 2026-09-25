@@ -224,8 +224,9 @@ final class StatsBanner {
 	 * par l'écran « Santé du site » de WordPress.
 	 *
 	 * @param float $rate        Taux, en pourcentage.
-	 * @param int   $converted   Conversions parmi les inscrits notifiés.
-	 * @param int   $opportunity Inscrits ayant reçu au moins une alerte.
+	 * @param int   $converted   Conversions parmi les inscrits ayant pu commander.
+	 * @param int   $opportunity Inscrits notifiés dont la demande est soldée — achetée,
+	 *                           sans suite ou désabonnée.
 	 *
 	 * @return string
 	 */
@@ -247,8 +248,8 @@ final class StatsBanner {
 			// transtypage suit LC_NUMERIC et produirait une largeur invalide.
 			esc_attr( number_format( $width, 2, '.', '' ) ),
 			sprintf(
-				/* translators: 1: nombre de conversions, 2: nombre d'inscrits notifiés. */
-				esc_html__( '%1$s commande(s) sur %2$s inscrit(s) ayant reçu une alerte', 'extender-for-back-in-stock-notifier' ),
+				/* translators: 1: nombre de conversions, 2: nombre d'inscrits ayant pu commander. */
+				esc_html__( '%1$s commande(s) sur %2$s inscrit(s) ayant pu commander', 'extender-for-back-in-stock-notifier' ),
 				esc_html( number_format_i18n( $converted ) ),
 				esc_html( number_format_i18n( $opportunity ) )
 			)
@@ -309,7 +310,17 @@ final class StatsBanner {
 			);
 		}
 
-		$notes[] = esc_html__( 'taux calculé sur les inscrits ayant reçu une alerte', 'extender-for-back-in-stock-notifier' );
+		$waiting = (int) $stats['waiting'];
+
+		if ( $waiting > 0 ) {
+			$notes[] = sprintf(
+				/* translators: %s: nombre d'inscriptions. */
+				esc_html__( '%s inscription(s) de nouveau en attente (produit reparti en rupture), hors taux', 'extender-for-back-in-stock-notifier' ),
+				esc_html( number_format_i18n( $waiting ) )
+			);
+		}
+
+		$notes[] = esc_html__( 'taux calculé sur les inscrits prévenus dont la demande est soldée — achetée, sans suite, ou désabonnée', 'extender-for-back-in-stock-notifier' );
 
 		$refresh = sprintf(
 			'<a href="%1$s" class="ebisn-stats__refresh">%2$s</a>',

@@ -15,12 +15,13 @@ use EBISN\Support\JobState;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Remet en attente les inscriptions déjà notifiées dont le produit est de
- * nouveau indisponible.
+ * Solde les inscriptions déjà notifiées dont le produit est de nouveau
+ * indisponible : remises en attente, ou désabonnées si leur quota d'alertes
+ * est épuisé.
  *
  * Ces personnes sont dans une impasse : prévenues une fois, elles ne le seront
  * plus jamais alors que le produit est reparti. Le rattrapage les réintègre au
- * cycle.
+ * cycle — ou les en sort proprement si elles l'ont déjà trop fait.
  */
 final class Backfill implements BatchJob {
 
@@ -153,8 +154,8 @@ final class Backfill implements BatchJob {
 			);
 		}
 
-		$renotified = 0;
-		$last_id    = $cursor;
+		$affected = 0;
+		$last_id  = $cursor;
 
 		foreach ( $batch as $row ) {
 			$last_id = $row['id'];
@@ -163,14 +164,18 @@ final class Backfill implements BatchJob {
 				continue;
 			}
 
-			if ( $this->service->renotify( $row['id'] ) ) {
-				++$renotified;
+			$result = $this->service->process( $row['id'] );
 
-				$parent = (int) get_post_meta( $row['id'], Host::META_PRODUCT_ID, true );
+			if ( RenotifyService::RESULT_SKIPPED === $result ) {
+				continue;
+			}
 
-				if ( $parent > 0 ) {
-					$this->touched[ $parent ] = true;
-				}
+			++$affected;
+
+			$parent = (int) get_post_meta( $row['id'], Host::META_PRODUCT_ID, true );
+
+			if ( $parent > 0 ) {
+				$this->touched[ $parent ] = true;
 			}
 		}
 
@@ -188,7 +193,7 @@ final class Backfill implements BatchJob {
 		return array(
 			'cursor'    => $last_id,
 			'processed' => count( $batch ),
-			'affected'  => $renotified,
+			'affected'  => $affected,
 			'done'      => $done,
 		);
 	}

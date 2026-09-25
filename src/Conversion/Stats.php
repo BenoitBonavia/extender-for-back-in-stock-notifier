@@ -55,11 +55,12 @@ final class Stats {
 			$cached = get_transient( self::TRANSIENT );
 
 			/*
-			 * `converted` n'existe que depuis le passage du taux de conversion à
-			 * un dénominateur historique : sa présence sert de marqueur de format
-			 * et fait recalculer un cache écrit par une version antérieure.
+			 * `waiting` n'existe que depuis le passage du taux de conversion à un
+			 * dénominateur restreint aux demandes soldées : sa présence sert de
+			 * marqueur de format et fait recalculer un cache écrit par une version
+			 * antérieure, dont le taux se lisait sur un dénominateur différent.
 			 */
-			if ( is_array( $cached ) && isset( $cached['converted'] ) ) {
+			if ( is_array( $cached ) && isset( $cached['waiting'] ) ) {
 				return $cached;
 			}
 		}
@@ -80,10 +81,17 @@ final class Stats {
 
 	/**
 	 * Accroche l'invalidation du cache aux événements qui le périment.
+	 *
+	 * Le dénominateur du taux se lisant désormais sur le statut courant, tout ce
+	 * qui déplace une inscription entre « Alerte envoyée », « Désabonné » et « En
+	 * attente » le périme aussi — pas seulement la conversion et son retour.
 	 */
 	public static function register_invalidation(): void {
 		add_action( 'ebisn_subscription_converted', array( self::class, 'flush' ) );
 		add_action( 'ebisn_subscription_reverted', array( self::class, 'flush' ) );
+		add_action( 'ebisn_subscription_unsubscribed', array( self::class, 'flush' ) );
+		add_action( 'ebisn_subscription_resubscribed', array( self::class, 'flush' ) );
+		add_action( 'ebisn_subscription_renotified', array( self::class, 'flush' ) );
 	}
 
 	/**
@@ -109,21 +117,28 @@ final class Stats {
 			'rate'        => $rate,
 			'opportunity' => $opportunity,
 			'converted'   => $converted,
+			'waiting'     => $funnel['waiting'],
 			'computed_at' => time(),
 		);
 	}
 
 	/**
-	 * Inscriptions ayant reçu au moins une alerte, et part convertie.
+	 * Inscriptions notifiées dont la demande est soldée, et part convertie.
 	 *
-	 * Le taux ne se lit pas sur le statut courant, mais sur un fait qui ne se
-	 * défait pas : cette personne a-t-elle reçu une alerte ? `cwginstock_mail_on`
-	 * porte l'horodatage du dernier envoi et survit à tous les changements de
-	 * statut — désabonnement, conversion, et remise en attente par le module de
-	 * renotification. Compter les « Alerte envoyée » du moment ferait remonter le
-	 * taux à chaque rupture, sans qu'une seule commande ait été passée.
+	 * La porte d'entrée reste un fait qui ne se défait pas : cette personne a-t-elle
+	 * reçu une alerte ? `cwginstock_mail_on` porte l'horodatage du dernier envoi et
+	 * survit à tous les changements de statut — désabonnement, conversion, et remise
+	 * en attente par le module de renotification.
 	 *
-	 * Une inscription jamais notifiée n'entre dans aucun des deux termes : elle
+	 * Le dénominateur, lui, se lit sur le statut courant, restreint aux trois issues
+	 * qui closent réellement une demande : achetée (`cwg_converted`), en attente
+	 * d'achat (`cwg_mailsent`), ou abandonnée (`cwg_unsubscribed`). Une inscription
+	 * notifiée que la renotification a remise en attente (`cwg_subscribed` /
+	 * `cwg_queued`) n'a pas eu l'occasion de commander cette fois-ci — son histoire
+	 * n'est pas terminée, elle ne doit ni compter contre le taux ni pour lui. C'est
+	 * elle que `waiting` dénombre, pour rester visible ailleurs qu'en creux.
+	 *
+	 * Une inscription jamais notifiée n'entre dans aucun des trois compteurs : elle
 	 * n'a pas encore eu l'occasion de commander.
 	 *
 	 * Le statut « Alerte envoyée » vaut aussi preuve d'envoi : l'hôte n'a pas
@@ -131,7 +146,7 @@ final class Stats {
 	 * dans sa colonne quand la métadonnée manque. Ces inscriptions anciennes
 	 * resteraient sinon hors du calcul.
 	 *
-	 * @return array{total:int, converted:int}
+	 * @return array{total:int, converted:int, waiting:int}
 	 */
 	private static function notified_funnel(): array {
 		global $wpdb;
@@ -144,16 +159,21 @@ final class Stats {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- résultat mis en cache par l'appelant.
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT COUNT( DISTINCT p.ID ) AS total,
-						COUNT( DISTINCT CASE WHEN p.post_status = %s THEN p.ID END ) AS converted
+				"SELECT COUNT( DISTINCT CASE WHEN p.post_status IN ( %s, %s, %s ) THEN p.ID END ) AS total,
+						COUNT( DISTINCT CASE WHEN p.post_status = %s THEN p.ID END ) AS converted,
+						COUNT( DISTINCT CASE WHEN p.post_status IN ( %s, %s ) THEN p.ID END ) AS waiting
 				   FROM {$wpdb->posts} p
 				   LEFT JOIN {$wpdb->postmeta} m
 						  ON m.post_id = p.ID
 						 AND m.meta_key = %s
 				  WHERE p.post_type = %s
-					AND p.post_status NOT IN ( 'trash', 'auto-draft' )
 					AND ( COALESCE( m.meta_value, '' ) <> '' OR p.post_status = %s )",
 				Host::STATUS_CONVERTED,
+				Host::STATUS_MAILSENT,
+				Host::STATUS_UNSUBSCRIBED,
+				Host::STATUS_CONVERTED,
+				Host::STATUS_SUBSCRIBED,
+				Host::STATUS_QUEUED,
 				Host::META_MAIL_ON,
 				Host::SUBSCRIBER_TYPE,
 				Host::STATUS_MAILSENT
@@ -165,12 +185,14 @@ final class Stats {
 			return array(
 				'total'     => 0,
 				'converted' => 0,
+				'waiting'   => 0,
 			);
 		}
 
 		return array(
 			'total'     => (int) $row->total,
 			'converted' => (int) $row->converted,
+			'waiting'   => (int) $row->waiting,
 		);
 	}
 

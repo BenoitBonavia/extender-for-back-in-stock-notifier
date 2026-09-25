@@ -65,9 +65,19 @@ final class StockWatcher {
 
 	/**
 	 * Accroche les hooks.
+	 *
+	 * `cwginstock_before_trigger_status` reste le déclencheur principal — l'hôte
+	 * l'émet pour sa propre couche de compatibilité avec les stocks tiers,
+	 * qu'un branchement direct sur WooCommerce ne couvrirait pas. Les deux hooks
+	 * natifs de WooCommerce sont ajoutés en filet : leur signature `( $id,
+	 * $stock_status )` est identique, donc le même rappel convient tel quel. Un
+	 * double déclenchement est sans conséquence : `Scheduler::enqueue()`
+	 * déduplique, et `process_product()` revérifie la rupture.
 	 */
 	public function register(): void {
 		add_action( Host::HOOK_BEFORE_TRIGGER_STATUS, array( $this, 'on_stock_status' ), 10, 2 );
+		add_action( 'woocommerce_product_set_stock_status', array( $this, 'on_stock_status' ), 10, 2 );
+		add_action( 'woocommerce_variation_set_stock_status', array( $this, 'on_stock_status' ), 10, 2 );
 		add_action( self::HOOK_PROCESS, array( $this, 'process_product' ), 10, 1 );
 	}
 
@@ -88,9 +98,12 @@ final class StockWatcher {
 			return;
 		}
 
+		Logger::info( sprintf( 'Produit #%1$d signalé en rupture : mise en file pour la renotification.', $product_id ) );
+
 		// `$unique` : une même rupture peut être signalée plusieurs fois dans la
 		// même requête, notamment quand plusieurs lignes de commande touchent au
-		// même produit.
+		// même produit, ou par le hook natif de WooCommerce en plus de celui de
+		// l'hôte.
 		Scheduler::enqueue( self::HOOK_PROCESS, $product_id, true );
 	}
 
@@ -116,18 +129,27 @@ final class StockWatcher {
 			return;
 		}
 
-		$ids        = $this->query->notified_for_product( $product_id, self::BATCH );
-		$renotified = 0;
+		$ids          = $this->query->notified_for_product( $product_id, self::BATCH );
+		$renotified   = 0;
+		$unsubscribed = 0;
 
 		foreach ( $ids as $subscription_id ) {
-			if ( $this->service->renotify( $subscription_id ) ) {
-				++$renotified;
+			switch ( $this->service->process( $subscription_id ) ) {
+				case RenotifyService::RESULT_RENOTIFIED:
+					++$renotified;
+					break;
+
+				case RenotifyService::RESULT_UNSUBSCRIBED:
+					++$unsubscribed;
+					break;
 			}
 		}
 
-		if ( $renotified > 0 ) {
+		if ( $renotified > 0 || $unsubscribed > 0 ) {
 			Host::refresh_subscriber_count( $this->parent_of( $product_id ) );
+		}
 
+		if ( $renotified > 0 ) {
 			Logger::info(
 				sprintf(
 					'Produit #%1$d repassé en rupture : %2$d inscription(s) remise(s) en attente.',
@@ -137,13 +159,24 @@ final class StockWatcher {
 			);
 		}
 
+		if ( $unsubscribed > 0 ) {
+			Logger::info(
+				sprintf(
+					'Produit #%1$d repassé en rupture : %2$d inscription(s) désabonnée(s), quota d’alertes épuisé.',
+					$product_id,
+					$unsubscribed
+				)
+			);
+		}
+
 		/*
-		 * Lot plein ET intégralement traité : d'autres inscriptions attendent
-		 * probablement leur tour. Le tri étant croissant et sans curseur, une
-		 * inscription qui n'a pas bougé reviendrait en tête du lot suivant : se
-		 * replanifier après un échec tournerait en rond indéfiniment.
+		 * Lot plein ET intégralement traité — remis en attente ou désabonné :
+		 * d'autres inscriptions attendent probablement leur tour. Le tri étant
+		 * croissant et sans curseur, une inscription qui n'a pas bougé
+		 * reviendrait en tête du lot suivant : se replanifier après un échec
+		 * tournerait en rond indéfiniment.
 		 */
-		if ( count( $ids ) >= self::BATCH && count( $ids ) === $renotified ) {
+		if ( count( $ids ) >= self::BATCH && count( $ids ) === $renotified + $unsubscribed ) {
 			Scheduler::schedule( time() + 30, self::HOOK_PROCESS, $product_id, true );
 		}
 	}

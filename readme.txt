@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.6.2
+Stable tag: 0.7.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -107,6 +107,19 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.7.0 =
+* Le taux de conversion se calcule désormais sur les inscriptions notifiées dont la demande est
+  soldée — achetée, restée en « Alerte envoyée », ou désabonnée — et non plus sur tout ce qui a
+  un jour reçu une alerte : une inscription remise en attente par le module de renotification
+  n'a pas encore eu l'occasion de commander, elle ne doit ni compter contre le taux ni pour lui.
+* Le module « Renotification » désabonne désormais automatiquement une inscription qui a épuisé
+  son quota de remises en attente, plutôt que de la laisser indéfiniment en « Alerte envoyée »
+  sans plus jamais la reprendre. Le plafond par défaut passe de illimité à 3, avec bascule
+  automatique des sites où le réglage était resté à sa valeur par défaut.
+* Le déclenchement du module « Renotification » s'appuie en plus sur les hooks natifs de
+  WooCommerce (`woocommerce_product_set_stock_status`, `woocommerce_variation_set_stock_status`),
+  en complément de celui de l'extension hôte, et journalise chaque rupture observée.
 
 = 0.6.2 =
 * Correction : sur un produit variable, la quantité et le bouton d'ajout au panier

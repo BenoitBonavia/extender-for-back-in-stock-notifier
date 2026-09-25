@@ -31,7 +31,8 @@ final class UnsubscribeService {
 	 * Désabonne une inscription.
 	 *
 	 * @param int    $subscription_id Inscription.
-	 * @param string $source          Origine : `button`, `email` ou `admin`.
+	 * @param string $source          Origine : `button`, `email`, `admin`, ou `renotify`
+	 *                                (quota de remises en attente épuisé, cf. `RenotifyService`).
 	 *
 	 * @return bool Vrai si CET appel a effectué le désabonnement.
 	 */

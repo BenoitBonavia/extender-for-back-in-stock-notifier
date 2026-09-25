@@ -10,22 +10,29 @@ namespace EBISN\Renotify;
 use EBISN\Integration\BackInStockNotifier as Host;
 use EBISN\Support\Logger;
 use EBISN\Support\Settings;
+use EBISN\Unsubscribe\UnsubscribeService;
 
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Fait repasser en « En attente » une inscription qui avait été notifiée.
+ * Fait repasser en « En attente » une inscription qui avait été notifiée, ou la
+ * désabonne une fois son quota d'alertes épuisé.
  *
- * L'écriture est déléguée à `CWG_Instock_API::subscriber_subscribed()`, comme le
- * désabonnement l'est à sa méthode jumelle : l'hôte pose lui-même ce statut par
- * cette voie, et l'emprunter laisse passer `transition_post_status`, donc ses
- * webhooks.
+ * L'écriture du retour en attente est déléguée à `CWG_Instock_API::subscriber_subscribed()`,
+ * comme le désabonnement l'est à sa méthode jumelle : l'hôte pose lui-même ce
+ * statut par cette voie, et l'emprunter laisse passer `transition_post_status`,
+ * donc ses webhooks.
  *
  * La métadonnée `cwginstock_mail_on` n'est JAMAIS effacée au passage — elle est
  * même écrite si elle manquait. C'est elle qui garde la trace qu'une alerte a
- * déjà été envoyée, et c'est sur elle que repose le taux de conversion : la
- * perdre ferait sortir la personne du dénominateur à chaque cycle, et le taux
- * remonterait tout seul.
+ * déjà été envoyée, et c'est elle qui fait entrer une inscription dans le
+ * dénominateur du taux de conversion.
+ *
+ * Une inscription dont le quota de remises en attente est épuisé n'est PAS
+ * laissée en « Alerte envoyée » : elle a eu ses chances, et un état mort ne
+ * ferait que fausser le taux dans un sens comme dans l'autre. Elle est
+ * désabonnée, par `UnsubscribeService` — même chemin qu'un désabonnement
+ * volontaire, donc réversible depuis l'administration.
  */
 final class RenotifyService {
 
@@ -38,6 +45,44 @@ final class RenotifyService {
 	 * Horodatage de la dernière remise en attente.
 	 */
 	public const META_LAST = '_ebisn_renotified_at';
+
+	/**
+	 * Nombre maximal de remises en attente par défaut, avant désabonnement automatique.
+	 */
+	public const DEFAULT_MAX_CYCLES = 3;
+
+	/**
+	 * `process()` a remis l'inscription en attente.
+	 */
+	public const RESULT_RENOTIFIED = 'renotified';
+
+	/**
+	 * `process()` a désabonné l'inscription, son quota étant épuisé.
+	 */
+	public const RESULT_UNSUBSCRIBED = 'unsubscribed';
+
+	/**
+	 * `process()` n'a rien fait : statut hors périmètre, ou écriture refusée.
+	 */
+	public const RESULT_SKIPPED = 'skipped';
+
+	/**
+	 * Service de désabonnement, pour l'inscription dont le quota est épuisé.
+	 *
+	 * @var UnsubscribeService
+	 */
+	private $unsubscribe;
+
+	/**
+	 * Constructeur.
+	 *
+	 * @param UnsubscribeService|null $unsubscribe Service de désabonnement, instancié
+	 *                                              par défaut pour ne pas obliger chaque
+	 *                                              appelant à le fournir.
+	 */
+	public function __construct( ?UnsubscribeService $unsubscribe = null ) {
+		$this->unsubscribe = $unsubscribe ?? new UnsubscribeService();
+	}
 
 	/**
 	 * Statuts depuis lesquels une remise en attente a du sens.
@@ -65,34 +110,34 @@ final class RenotifyService {
 	 * @return int `0` pour aucune limite.
 	 */
 	public static function max_cycles(): int {
-		return max( 0, (int) Settings::get( 'renotify_max_cycles', 0 ) );
+		return max( 0, (int) Settings::get( 'renotify_max_cycles', self::DEFAULT_MAX_CYCLES ) );
 	}
 
 	/**
-	 * Remet une inscription en attente.
+	 * Traite une inscription déjà notifiée dont le produit repasse en rupture.
 	 *
 	 * @param int $subscription_id Inscription.
 	 *
-	 * @return bool Vrai si CET appel a effectué la remise en attente.
+	 * @return string L'une des constantes `RESULT_*`.
 	 */
-	public function renotify( int $subscription_id ): bool {
+	public function process( int $subscription_id ): string {
 		$current = (string) get_post_status( $subscription_id );
 
 		if ( ! in_array( $current, self::source_statuses(), true ) ) {
-			return false;
+			return self::RESULT_SKIPPED;
 		}
 
 		$cycles = (int) get_post_meta( $subscription_id, self::META_CYCLES, true );
 		$max    = self::max_cycles();
 
 		if ( $max > 0 && $cycles >= $max ) {
-			return false;
+			return $this->exhaust( $subscription_id, $cycles, $max );
 		}
 
 		$this->preserve_notified_trace( $subscription_id );
 
 		if ( ! $this->write_status( $subscription_id ) ) {
-			return false;
+			return self::RESULT_SKIPPED;
 		}
 
 		update_post_meta( $subscription_id, self::META_CYCLES, $cycles + 1 );
@@ -106,7 +151,42 @@ final class RenotifyService {
 		 */
 		do_action( 'ebisn_subscription_renotified', $subscription_id, $cycles + 1 );
 
-		return true;
+		return self::RESULT_RENOTIFIED;
+	}
+
+	/**
+	 * Désabonne une inscription dont le quota de remises en attente est épuisé.
+	 *
+	 * @param int $subscription_id Inscription.
+	 * @param int $cycles          Remises en attente déjà appliquées.
+	 * @param int $max             Quota atteint.
+	 *
+	 * @return string
+	 */
+	private function exhaust( int $subscription_id, int $cycles, int $max ): string {
+		if ( ! $this->unsubscribe->unsubscribe( $subscription_id, 'renotify' ) ) {
+			return self::RESULT_SKIPPED;
+		}
+
+		Logger::info(
+			sprintf(
+				'Inscription #%1$d : plafond de %2$d alerte(s) atteint (%3$d remise(s) en attente) — désabonnement automatique.',
+				$subscription_id,
+				$max,
+				$cycles
+			)
+		);
+
+		/**
+		 * Une inscription vient d'être désabonnée pour avoir épuisé son quota
+		 * de remises en attente.
+		 *
+		 * @param int $subscription_id Inscription.
+		 * @param int $cycles          Remises en attente déjà appliquées.
+		 */
+		do_action( 'ebisn_subscription_renotify_exhausted', $subscription_id, $cycles );
+
+		return self::RESULT_UNSUBSCRIBED;
 	}
 
 	/**

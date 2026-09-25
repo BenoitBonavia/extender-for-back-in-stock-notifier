@@ -455,10 +455,10 @@ final class SettingsFields extends \WC_Settings_Page {
 			array(
 				'title'    => __( 'Alertes maximales par inscription', 'extender-for-back-in-stock-notifier' ),
 				'desc'     => __( 'remises en attente', 'extender-for-back-in-stock-notifier' ),
-				'desc_tip' => __( 'Au-delà, l’inscription reste en « Alerte envoyée » et n’est plus reprise. 0 lève la limite : la personne est prévenue à chaque retour en stock jusqu’à ce qu’elle achète ou se désabonne.', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Au-delà, l’inscription est automatiquement désabonnée : elle a eu ses chances, et la laisser en « Alerte envoyée » la maintiendrait dans un état mort. 0 lève la limite : la personne est prévenue à chaque retour en stock jusqu’à ce qu’elle achète ou se désabonne.', 'extender-for-back-in-stock-notifier' ),
 				'id'       => Settings::PREFIX . 'renotify_max_cycles',
 				'type'     => 'number',
-				'default'  => 0,
+				'default'  => RenotifyService::DEFAULT_MAX_CYCLES,
 				'css'      => 'width:100px;',
 			),
 			array(
@@ -491,7 +491,7 @@ final class SettingsFields extends \WC_Settings_Page {
 		}
 
 		return esc_html__(
-			'Une inscription déjà notifiée repart en attente dès que le produit redevient indisponible, et le cycle recommence jusqu’à l’achat ou le désabonnement. Les inscriptions converties ou désabonnées ne sont jamais reprises.',
+			'Une inscription déjà notifiée repart en attente dès que le produit redevient indisponible, et le cycle recommence jusqu’à l’achat, le désabonnement, ou l’atteinte du nombre maximal d’alertes ci-dessous — auquel cas elle est désabonnée automatiquement. Les inscriptions converties ou désabonnées ne sont jamais reprises.',
 			'extender-for-back-in-stock-notifier'
 		);
 	}
@@ -511,8 +511,8 @@ final class SettingsFields extends \WC_Settings_Page {
 
 		if ( JobState::STATUS_RUNNING === $state->status() ) {
 			return sprintf(
-				/* translators: 1: inscriptions examinées, 2: inscriptions remises en attente. */
-				esc_html__( 'En cours : %1$s inscription(s) examinée(s), %2$s remise(s) en attente.', 'extender-for-back-in-stock-notifier' ),
+				/* translators: 1: inscriptions examinées, 2: inscriptions relancées ou désabonnées. */
+				esc_html__( 'En cours : %1$s inscription(s) examinée(s), %2$s relancée(s) ou désabonnée(s).', 'extender-for-back-in-stock-notifier' ),
 				'<strong>' . esc_html( number_format_i18n( $state->processed() ) ) . '</strong>',
 				'<strong>' . esc_html( number_format_i18n( $state->affected() ) ) . '</strong>'
 			);
@@ -530,8 +530,8 @@ final class SettingsFields extends \WC_Settings_Page {
 
 		if ( JobState::STATUS_DONE === $state->status() ) {
 			$summary = sprintf(
-				/* translators: %s: nombre d'inscriptions remises en attente. */
-				esc_html__( 'Terminé : %s inscription(s) remise(s) en attente.', 'extender-for-back-in-stock-notifier' ),
+				/* translators: %s: nombre d'inscriptions relancées ou désabonnées. */
+				esc_html__( 'Terminé : %s relancée(s) ou désabonnée(s).', 'extender-for-back-in-stock-notifier' ),
 				'<strong>' . esc_html( number_format_i18n( $state->affected() ) ) . '</strong>'
 			) . ' ' . $summary;
 		}

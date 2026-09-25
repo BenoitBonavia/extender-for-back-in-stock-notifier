@@ -13,6 +13,8 @@ use EBISN\Renotify\RenotifyService;
 use EBISN\Renotify\StockWatcher;
 use EBISN\Renotify\SubscriptionQuery;
 use EBISN\Support\JobState;
+use EBISN\Support\Logger;
+use EBISN\Support\Settings;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -62,7 +64,7 @@ final class Renotify extends AbstractModule {
 	 */
 	public function get_description(): string {
 		return __(
-			'Une alerte de retour en stock ne sert normalement qu’une fois : si le produit repart avant que la personne n’ait commandé, elle ne sera plus jamais prévenue. Ce module la remet automatiquement en attente dès que le produit redevient indisponible, et recommence à chaque cycle jusqu’à ce qu’elle achète ou se désabonne. Un rattrapage est lancé une fois à l’activation, sur les inscriptions déjà bloquées dans cet état. Attention : ce module provoque de nouveaux envois d’e-mails.',
+			'Une alerte de retour en stock ne sert normalement qu’une fois : si le produit repart avant que la personne n’ait commandé, elle ne sera plus jamais prévenue. Ce module la remet automatiquement en attente dès que le produit redevient indisponible, et recommence à chaque cycle jusqu’à ce qu’elle achète, se désabonne, ou atteigne le nombre maximal d’alertes — auquel cas elle est désabonnée automatiquement. Un rattrapage est lancé une fois à l’activation, sur les inscriptions déjà bloquées dans cet état. Attention : ce module provoque de nouveaux envois d’e-mails.',
 			'extender-for-back-in-stock-notifier'
 		);
 	}
@@ -99,6 +101,8 @@ final class Renotify extends AbstractModule {
 	 * Amorce le rattrapage à la première mise à jour suivant l'activation.
 	 */
 	public function on_upgrade(): void {
+		$this->migrate_max_cycles_default();
+
 		if ( null !== $this->backfill ) {
 			$this->backfill->maybe_bootstrap();
 		}
@@ -109,16 +113,48 @@ final class Renotify extends AbstractModule {
 	 *
 	 * Répété sur `admin_init` : ce module étant désactivé par défaut, il
 	 * n'écoute pas `ebisn_upgrade` au moment où cette action se déclenche. Sans
-	 * cela, l'activer plus tard n'amorcerait jamais son rattrapage, la version
-	 * installée n'ayant pas changé.
+	 * cela, l'activer plus tard n'amorcerait jamais son rattrapage — ni la
+	 * migration du plafond d'alertes —, la version installée n'ayant pas changé.
 	 */
 	public function boot_jobs(): void {
+		$this->migrate_max_cycles_default();
+
 		if ( null === $this->backfill ) {
 			return;
 		}
 
 		$this->backfill->maybe_bootstrap();
 		$this->backfill->revive_if_stalled();
+	}
+
+	/**
+	 * Porte le plafond d'alertes à sa nouvelle valeur par défaut, une seule fois.
+	 *
+	 * Le défaut d'un champ de réglages WooCommerce ne s'applique qu'au rendu :
+	 * une option déjà enregistrée à `0` — le cas dès que la section
+	 * « Renotification » a été sauvegardée une seule fois — continuerait à lever
+	 * la limite indéfiniment sans cette migration. `add_option()` sert de garde
+	 * d'unicité, comme `JobState::bootstrap()` : son échec signifie « déjà fait ».
+	 */
+	private function migrate_max_cycles_default(): void {
+		if ( ! add_option( Settings::option_name( 'renotify_cap_migrated' ), '1', '', false ) ) {
+			return;
+		}
+
+		$current = (int) Settings::get( 'renotify_max_cycles', RenotifyService::DEFAULT_MAX_CYCLES );
+
+		if ( 0 !== $current ) {
+			return;
+		}
+
+		Settings::update( 'renotify_max_cycles', RenotifyService::DEFAULT_MAX_CYCLES );
+
+		Logger::info(
+			sprintf(
+				'Plafond d’alertes de renotification migré : illimité → %d.',
+				RenotifyService::DEFAULT_MAX_CYCLES
+			)
+		);
 	}
 
 	/**
@@ -144,8 +180,8 @@ final class Renotify extends AbstractModule {
 
 		if ( JobState::STATUS_RUNNING === $state->status() ) {
 			$lines[] = sprintf(
-				/* translators: 1: inscriptions examinées, 2: inscriptions remises en attente. */
-				esc_html__( 'Rattrapage des renotifications : en cours — %1$s inscription(s) examinée(s), %2$s remise(s) en attente.', 'extender-for-back-in-stock-notifier' ),
+				/* translators: 1: inscriptions examinées, 2: inscriptions relancées ou désabonnées. */
+				esc_html__( 'Rattrapage des renotifications : en cours — %1$s inscription(s) examinée(s), %2$s relancée(s) ou désabonnée(s).', 'extender-for-back-in-stock-notifier' ),
 				'<strong>' . esc_html( number_format_i18n( $state->processed() ) ) . '</strong>',
 				'<strong>' . esc_html( number_format_i18n( $state->affected() ) ) . '</strong>'
 			);
@@ -155,8 +191,8 @@ final class Renotify extends AbstractModule {
 
 		if ( JobState::STATUS_DONE === $state->status() ) {
 			$lines[] = sprintf(
-				/* translators: %s: inscriptions remises en attente. */
-				esc_html__( 'Rattrapage des renotifications : terminé — %s inscription(s) remise(s) en attente.', 'extender-for-back-in-stock-notifier' ),
+				/* translators: %s: inscriptions relancées ou désabonnées. */
+				esc_html__( 'Rattrapage des renotifications : terminé — %s relancée(s) ou désabonnée(s).', 'extender-for-back-in-stock-notifier' ),
 				'<strong>' . esc_html( number_format_i18n( $state->affected() ) ) . '</strong>'
 			);
 		}
