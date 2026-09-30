@@ -4,7 +4,7 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.7.0
+- **Version** : 0.8.0
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
   Back In Stock Notifier 7.0+ (relu sur 7.4.2)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
@@ -39,7 +39,8 @@ extender-for-back-in-stock-notifier/
     ├── Installer.php                        Activation / désactivation / migrations
     ├── Integration/
     │   ├── BackInStockNotifier.php          Tout ce qu'on sait du plugin hôte
-    │   └── Brevo.php                        Tout ce qu'on sait des extensions Brevo
+    │   ├── Brevo.php                        Tout ce qu'on sait des extensions Brevo
+    │   └── RealStockManager.php             Tout ce qu'on sait du plugin frère Real Stock Manager
     ├── Admin/
     │   ├── Admin.php                        Hooks admin, assets, lien « Réglages »
     │   ├── SettingsPage.php                 Écran de réglages, sous le menu de l'hôte
@@ -72,7 +73,8 @@ extender-for-back-in-stock-notifier/
     ├── Matrix/                              Croisement des demandes par déclinaison
     │   ├── DemandMatrix.php                 Collecte agrégée, mise en cache
     │   ├── AttributeResolver.php            Choix de l'attribut d'axe et ordre des colonnes
-    │   └── MatrixExporter.php               Export CSV, formules neutralisées
+    │   ├── MatrixExporter.php               Export CSV, formules neutralisées
+    │   └── SupplyCoverage.php               Déduit ce que Real Stock Manager couvre déjà
     ├── Unsubscribe/                         Désabonnement d'une alerte
     │   ├── UnsubscribeService.php           Délègue l'écriture à l'API de l'hôte
     │   ├── StatusRecorder.php               Mémorise le statut quitté, quel qu'en soit l'auteur
@@ -94,6 +96,7 @@ extender-for-back-in-stock-notifier/
     │   ├── ConversionStats.php              Module « indicateurs »
     │   ├── Renotify.php                     Module « Renotification » (désactivé par défaut)
     │   ├── SizeMatrix.php                   Module « Demandes par taille »
+    │   ├── StockCoverage.php                Module « Croiser avec le réassort » (Real Stock Manager)
     │   ├── Unsubscribe.php                  Module « Désabonnement »
     │   ├── HideAddToCart.php                Module « Masquer l'ajout au panier »
     │   └── BrevoSync.php                    Module « Brevo » (désactivé par défaut)
@@ -116,6 +119,7 @@ extender-for-back-in-stock-notifier/
 | Valeur des listes d'attente | `conversion_stats` | oui | Affiche au-dessus de la liste des inscrits la valeur en attente, le chiffre d'affaires récupéré et le taux de conversion. |
 | Renotification | `renotify` | **non** | Remet en attente une inscription déjà notifiée dès que son produit repasse en rupture, et recommence à chaque cycle jusqu'à l'achat ou le désabonnement. Reste en veille tant que l'option `keep_status_subscribed` de l'hôte est cochée. |
 | Demandes par taille | `size_matrix` | oui | Écran croisant les demandes par produit et par déclinaison, avec recherche, tri, pagination et export CSV. L'attribut porté en colonnes et les statuts comptés sont réglables. |
+| Croiser avec le réassort | `stock_coverage` | oui | Quand Real Stock Manager for WooCommerce est actif : case sur l'écran « Demandes par taille » déduisant ce que le stock physique et le commandé fournisseur couvrent déjà, et carte de valeur sur le bandeau de la liste des inscrits. Sans effet si Real Stock Manager est absent. |
 | Désabonnement | `unsubscribe` | oui | Remplace le formulaire d'inscription par un bouton de désabonnement, et fournit un lien signé aux e-mails. Libellé et messages réglables. |
 | Masquer l'ajout au panier | `hide_add_to_cart` | **non** | Retire le sélecteur de quantité et le bouton d'ajout au panier là où une alerte de retour en stock est proposée. |
 | Synchronisation Brevo | `brevo_sync` | **non** | Pousse les adresses inscrites vers une liste Brevo. Dépend de l'extension Brevo (`mailin`) ou d'une clé d'API saisie manuellement. |
@@ -130,6 +134,20 @@ son nom en dur, puis une clé saisie dans les réglages.
 Attention : seule l'extension **Brevo** (slug `mailin`) détient une clé d'API v3. Le
 connecteur « Brevo for WooCommerce » n'en stocke plus depuis sa version 4 — un site n'ayant
 que celui-ci doit saisir sa clé manuellement.
+
+### Dépendance optionnelle à Real Stock Manager for WooCommerce
+
+Même principe que pour Brevo : Real Stock Manager n'est **pas** déclaré dans l'en-tête
+`Requires Plugins`, et la détection se fait à l'exécution
+(`Integration\RealStockManager::is_active()`, qui teste `RSMW_VERSION` puis
+`class_exists( \RSMW\Preparation\Supply::class )`). Sans lui, le module `stock_coverage`
+reste inscrit mais inerte : aucune case ni carte n'apparaît, aucun appel à ses classes n'est
+tenté.
+
+Le calcul de couverture n'est jamais réécrit ici : `RealStockManager::available_for()` et
+`RealStockManager::value_covered_by_supplier()` recopient très exactement
+`RSMW\BackInStock\Coverage::available_breakdown()` — stock physique consommé avant le
+commandé fournisseur, commandes clients en attente toujours servies en premier.
 
 ## Reprise depuis les snippets WPCode
 

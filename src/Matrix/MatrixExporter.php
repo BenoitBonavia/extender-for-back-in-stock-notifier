@@ -49,7 +49,13 @@ final class MatrixExporter {
 
 		check_admin_referer( self::NONCE );
 
-		$this->send( DemandMatrix::get() );
+		$matrix = DemandMatrix::get();
+
+		if ( SupplyCoverage::is_available() && SupplyCoverage::is_requested() ) {
+			list( $matrix, ) = SupplyCoverage::apply( $matrix );
+		}
+
+		$this->send( $matrix );
 	}
 
 	/**
@@ -70,6 +76,10 @@ final class MatrixExporter {
 		if ( isset( $_REQUEST['ebisn_scope'] ) && '' !== $_REQUEST['ebisn_scope'] ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- idem.
 			$args['ebisn_scope'] = sanitize_key( wp_unslash( $_REQUEST['ebisn_scope'] ) );
+		}
+
+		if ( SupplyCoverage::is_requested() ) {
+			$args[ SupplyCoverage::request_key() ] = 1;
 		}
 
 		return wp_nonce_url( add_query_arg( $args, admin_url( 'edit.php' ) ), self::NONCE );

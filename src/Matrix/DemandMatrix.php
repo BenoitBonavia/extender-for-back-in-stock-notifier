@@ -32,6 +32,16 @@ final class DemandMatrix {
 	public const DEFAULT_TTL_MINUTES = 5;
 
 	/**
+	 * Version de la structure mise en cache.
+	 *
+	 * À incrémenter à chaque changement de forme de la matrice : une entrée
+	 * déjà en transient resterait sinon lue telle quelle par du code qui
+	 * attend la nouvelle forme (ainsi `cells[*]['pids']`, passé de liste plate
+	 * à carte pid => quantité).
+	 */
+	private const CACHE_VERSION = 2;
+
+	/**
 	 * Statut compté par défaut.
 	 *
 	 * Seul « en attente » : c'est le comportement du snippet remplacé, et la
@@ -109,6 +119,7 @@ final class DemandMatrix {
 			md5(
 				(string) wp_json_encode(
 					array(
+						self::CACHE_VERSION,
 						self::statuses(),
 						(string) Settings::get( 'matrix_attribute', '' ),
 					)
@@ -218,17 +229,23 @@ final class DemandMatrix {
 					);
 				}
 
-				if ( isset( $rows[ $parent ]['cells'][ $key ] ) ) {
-					$rows[ $parent ]['cells'][ $key ]['count'] += $count;
-					// Plusieurs variations partagent cette valeur — une taille
-					// déclinée en couleurs, par exemple. Toutes sont conservées
-					// pour que le lien de la cellule reste exact.
-					$rows[ $parent ]['cells'][ $key ]['pids'][] = $subscribed_id;
-				} else {
+				if ( ! isset( $rows[ $parent ]['cells'][ $key ] ) ) {
 					$rows[ $parent ]['cells'][ $key ] = array(
-						'count' => $count,
-						'pids'  => $is_var ? array( $subscribed_id ) : array(),
+						'count' => 0,
+						// Carte pid => quantité, et non une simple liste : une
+						// cellule agrège parfois plusieurs variations (une
+						// taille déclinée en couleurs, par exemple), et confronter
+						// cette demande au stock disponible exige de savoir
+						// combien chaque variation en réclame précisément.
+						'pids'  => array(),
 					);
+				}
+
+				$rows[ $parent ]['cells'][ $key ]['count'] += $count;
+
+				if ( $is_var ) {
+					$rows[ $parent ]['cells'][ $key ]['pids'][ $subscribed_id ]
+						= ( $rows[ $parent ]['cells'][ $key ]['pids'][ $subscribed_id ] ?? 0 ) + $count;
 				}
 
 				$rows[ $parent ]['total'] += $count;

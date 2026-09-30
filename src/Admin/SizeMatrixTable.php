@@ -10,6 +10,7 @@ namespace EBISN\Admin;
 use EBISN\Integration\BackInStockNotifier as Host;
 use EBISN\Matrix\AttributeResolver;
 use EBISN\Matrix\DemandMatrix;
+use EBISN\Matrix\SupplyCoverage;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -422,6 +423,15 @@ final class SizeMatrixTable extends \WP_List_Table {
 	 * {@inheritDoc}
 	 */
 	public function no_items(): void {
+		if ( SupplyCoverage::is_available() && SupplyCoverage::is_requested() ) {
+			esc_html_e(
+				'Aucune demande restante : tout est déjà couvert par le stock physique ou par une commande fournisseur en cours.',
+				'extender-for-back-in-stock-notifier'
+			);
+
+			return;
+		}
+
 		esc_html_e(
 			'Aucune demande en attente : tout est réapprovisionné, ou les demandes existantes ont déjà été notifiées ou converties en achat.',
 			'extender-for-back-in-stock-notifier'
@@ -458,6 +468,17 @@ final class SizeMatrixTable extends \WP_List_Table {
 			esc_html__( 'Produits déclinés uniquement', 'extender-for-back-in-stock-notifier' )
 		);
 		echo '</select>';
+
+		if ( SupplyCoverage::is_available() ) {
+			printf(
+				'<label for="ebisn_uncovered" class="ebisn-matrix__toggle">'
+					. '<input type="checkbox" name="%1$s" id="ebisn_uncovered" value="1" %2$s /> %3$s'
+				. '</label>',
+				esc_attr( SupplyCoverage::request_key() ),
+				checked( SupplyCoverage::is_requested(), true, false ),
+				esc_html__( 'Uniquement ce qui reste à commander', 'extender-for-back-in-stock-notifier' )
+			);
+		}
 
 		submit_button(
 			__( 'Filtrer', 'extender-for-back-in-stock-notifier' ),
@@ -527,7 +548,7 @@ final class SizeMatrixTable extends \WP_List_Table {
 		 * toutes les tailles. À défaut de variation connue — produit simple ou
 		 * variation supprimée — on retombe sur le parent.
 		 */
-		$targets = ! empty( $cell['pids'] ) ? array_map( 'intval', (array) $cell['pids'] ) : array( (int) $item['parent_id'] );
+		$targets = ! empty( $cell['pids'] ) ? array_map( 'intval', array_keys( (array) $cell['pids'] ) ) : array( (int) $item['parent_id'] );
 
 		return sprintf(
 			'<a class="ebisn-matrix__cell" href="%1$s" title="%2$s" style="--ebisn-heat:%3$s">%4$s</a>',

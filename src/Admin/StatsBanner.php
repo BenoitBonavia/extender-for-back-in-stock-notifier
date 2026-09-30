@@ -121,10 +121,11 @@ final class StatsBanner {
 	 * @return string HTML entièrement échappé.
 	 */
 	private function markup( array $stats ): string {
-		$pending   = $stats['pending'];
-		$notified  = $stats['notified'];
-		$recovered = $stats['recovered'];
-		$rate      = (float) $stats['rate'];
+		$pending          = $stats['pending'];
+		$notified         = $stats['notified'];
+		$recovered        = $stats['recovered'];
+		$rate             = (float) $stats['rate'];
+		$supplier_covered = $stats['supplier_covered'];
 
 		$cards = array(
 			$this->card(
@@ -133,36 +134,52 @@ final class StatsBanner {
 				$this->volume_hint( $pending ),
 				'pending'
 			),
-			$this->card(
-				__( 'Non récupéré', 'extender-for-back-in-stock-notifier' ),
-				wc_price( $notified['value'] ),
-				$this->volume_hint( $notified ),
-				'lost'
-			),
-			$this->card(
-				__( 'Récupéré — produit attendu', 'extender-for-back-in-stock-notifier' ),
-				wc_price( $recovered['strict'] ),
+		);
+
+		if ( null !== $supplier_covered ) {
+			$cards[] = $this->card(
+				__( 'Comblable par le fournisseur', 'extender-for-back-in-stock-notifier' ),
+				wc_price( $supplier_covered['value'] ),
 				sprintf(
-					/* translators: 1: nombre de lignes de commande, 2: nombre de conversions. */
-					esc_html__( '%1$s ligne(s) de commande · %2$s conversion(s)', 'extender-for-back-in-stock-notifier' ),
-					esc_html( number_format_i18n( $recovered['lines'] ) ),
-					esc_html( number_format_i18n( $recovered['subs'] ) )
+					/* translators: %s: nombre d'unités. */
+					esc_html__( '%s unité(s) déjà commandée(s), prête(s) pour ces demandes', 'extender-for-back-in-stock-notifier' ),
+					esc_html( number_format_i18n( $supplier_covered['units'] ) )
 				),
-				'won'
+				'supply'
+			);
+		}
+
+		$cards[] = $this->card(
+			__( 'Non récupéré', 'extender-for-back-in-stock-notifier' ),
+			wc_price( $notified['value'] ),
+			$this->volume_hint( $notified ),
+			'lost'
+		);
+
+		$cards[] = $this->card(
+			__( 'Récupéré — produit attendu', 'extender-for-back-in-stock-notifier' ),
+			wc_price( $recovered['strict'] ),
+			sprintf(
+				/* translators: 1: nombre de lignes de commande, 2: nombre de conversions. */
+				esc_html__( '%1$s ligne(s) de commande · %2$s conversion(s)', 'extender-for-back-in-stock-notifier' ),
+				esc_html( number_format_i18n( $recovered['lines'] ) ),
+				esc_html( number_format_i18n( $recovered['subs'] ) )
 			),
-			$this->card(
-				__( 'Récupéré — commandes entières', 'extender-for-back-in-stock-notifier' ),
-				wc_price( $recovered['broad'] ),
-				sprintf(
-					/* translators: 1: nombre de commandes, 2: montant du panier moyen. */
-					esc_html__( '%1$s commande(s) · panier moyen %2$s', 'extender-for-back-in-stock-notifier' ),
-					esc_html( number_format_i18n( $recovered['orders'] ) ),
-					wp_kses_post(
-						wc_price( $recovered['orders'] > 0 ? $recovered['broad'] / $recovered['orders'] : 0 )
-					)
-				),
-				'total'
+			'won'
+		);
+
+		$cards[] = $this->card(
+			__( 'Récupéré — commandes entières', 'extender-for-back-in-stock-notifier' ),
+			wc_price( $recovered['broad'] ),
+			sprintf(
+				/* translators: 1: nombre de commandes, 2: montant du panier moyen. */
+				esc_html__( '%1$s commande(s) · panier moyen %2$s', 'extender-for-back-in-stock-notifier' ),
+				esc_html( number_format_i18n( $recovered['orders'] ) ),
+				wp_kses_post(
+					wc_price( $recovered['orders'] > 0 ? $recovered['broad'] / $recovered['orders'] : 0 )
+				)
 			),
+			'total'
 		);
 
 		return '<div class="ebisn-stats">'
@@ -321,6 +338,10 @@ final class StatsBanner {
 		}
 
 		$notes[] = esc_html__( 'taux calculé sur les inscrits prévenus dont la demande est soldée — achetée, sans suite, ou désabonnée', 'extender-for-back-in-stock-notifier' );
+
+		if ( null !== $stats['supplier_covered'] ) {
+			$notes[] = esc_html__( 'comblable par le fournisseur : ne se met à jour qu’au recalcul (Real Stock Manager n’avertit pas de ses propres écritures)', 'extender-for-back-in-stock-notifier' );
+		}
 
 		$refresh = sprintf(
 			'<a href="%1$s" class="ebisn-stats__refresh">%2$s</a>',

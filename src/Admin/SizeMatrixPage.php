@@ -11,6 +11,7 @@ use EBISN\Integration\BackInStockNotifier as Host;
 use EBISN\Matrix\AttributeResolver;
 use EBISN\Matrix\DemandMatrix;
 use EBISN\Matrix\MatrixExporter;
+use EBISN\Matrix\SupplyCoverage;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -146,7 +147,12 @@ final class SizeMatrixPage {
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- rafraîchissement d'un cache de lecture, sans effet de bord.
-		$matrix = DemandMatrix::get( isset( $_GET['ebisn_refresh'] ) );
+		$matrix  = DemandMatrix::get( isset( $_GET['ebisn_refresh'] ) );
+		$covered = 0;
+
+		if ( SupplyCoverage::is_available() && SupplyCoverage::is_requested() ) {
+			list( $matrix, $covered ) = SupplyCoverage::apply( $matrix );
+		}
 
 		$table = new SizeMatrixTable( $matrix );
 		$table->prepare_items();
@@ -174,10 +180,19 @@ final class SizeMatrixPage {
 		echo '<p class="description">' . esc_html__(
 			'Demandes de retour en stock croisées par produit et par déclinaison. Cliquez sur un chiffre pour voir les personnes concernées.',
 			'extender-for-back-in-stock-notifier'
-		) . '</p>';
+		);
+
+		if ( SupplyCoverage::is_available() ) {
+			echo ' ' . esc_html__(
+				'La case « Uniquement ce qui reste à commander » déduit le stock physique et le réassort déjà commandé au fournisseur.',
+				'extender-for-back-in-stock-notifier'
+			);
+		}
+
+		echo '</p>';
 
 		$this->render_queued_notice();
-		$this->render_stats( $matrix );
+		$this->render_stats( $matrix, $covered );
 
 		echo '<form method="get">';
 		printf( '<input type="hidden" name="post_type" value="%s" />', esc_attr( Host::SUBSCRIBER_TYPE ) );
@@ -192,7 +207,7 @@ final class SizeMatrixPage {
 
 		echo '</form>';
 
-		$this->render_footnote( $matrix );
+		$this->render_footnote( $matrix, $covered > 0 );
 
 		echo '</div>';
 	}
@@ -222,10 +237,11 @@ final class SizeMatrixPage {
 	 * Réutilise les classes du bandeau de conversion : deux écrans du même
 	 * plugin n'ont pas de raison d'inventer chacun leur présentation.
 	 *
-	 * @param array<string, mixed> $matrix Matrice.
+	 * @param array<string, mixed> $matrix  Matrice.
+	 * @param int                  $covered Demandes retirées par le filtre de couverture, s'il est actif.
 	 */
-	private function render_stats( array $matrix ): void {
-		if ( empty( $matrix['rows'] ) ) {
+	private function render_stats( array $matrix, int $covered = 0 ): void {
+		if ( empty( $matrix['rows'] ) && $covered <= 0 ) {
 			return;
 		}
 
@@ -251,6 +267,14 @@ final class SizeMatrixPage {
 			__( 'Produits concernés', 'extender-for-back-in-stock-notifier' ),
 			number_format_i18n( (int) $matrix['products'] )
 		);
+
+		if ( $covered > 0 ) {
+			$this->stat(
+				__( 'Demandes déjà couvertes', 'extender-for-back-in-stock-notifier' ),
+				number_format_i18n( $covered ),
+				__( 'stock physique ou commandé fournisseur', 'extender-for-back-in-stock-notifier' )
+			);
+		}
 
 		if ( '' !== $top_label ) {
 			$this->stat(
@@ -293,9 +317,10 @@ final class SizeMatrixPage {
 	/**
 	 * Affiche la note de bas de page.
 	 *
-	 * @param array<string, mixed> $matrix Matrice.
+	 * @param array<string, mixed> $matrix           Matrice.
+	 * @param bool                 $coverage_applied Le filtre de couverture a retiré des demandes.
 	 */
-	private function render_footnote( array $matrix ): void {
+	private function render_footnote( array $matrix, bool $coverage_applied = false ): void {
 		$statuses = array_map(
 			static function ( string $status ): string {
 				$object = get_post_status_object( $status );
@@ -328,5 +353,16 @@ final class SizeMatrixPage {
 		);
 
 		echo '</p>';
+
+		if ( $coverage_applied ) {
+			echo '<p class="description">';
+			printf(
+				/* translators: %s: URL de la page « Besoins Back in Stock » de Real Stock Manager. */
+				esc_html__( 'Les quantités déjà en stock ou commandées au fournisseur ont été déduites. %s', 'extender-for-back-in-stock-notifier' ),
+				'<a href="' . esc_url( admin_url( 'admin.php?page=rsmw-bis-needs' ) ) . '">'
+					. esc_html__( 'Voir le détail référence par référence', 'extender-for-back-in-stock-notifier' ) . '</a>'
+			);
+			echo '</p>';
+		}
 	}
 }

@@ -23,6 +23,9 @@ parameters:
         # Classes de l'extension hôte réellement appelées, toutes gardées par
         # class_exists() / method_exists() à l'exécution.
         - stubs/back-in-stock-notifier.php
+        # Classes du plugin frère Real Stock Manager réellement appelées,
+        # toutes gardées par RealStockManager::is_active() à l'exécution.
+        - stubs/real-stock-manager.php
     scanDirectories:
         # La bibliothèque de mise à jour est exclue de l'ANALYSE (excludePaths),
         # mais ses classes doivent rester résolvables : buildUpdateChecker()

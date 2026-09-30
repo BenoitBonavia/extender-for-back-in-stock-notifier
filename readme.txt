@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.7.0
+Stable tag: 0.8.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -39,6 +39,12 @@ Modules disponibles :
   par déclinaison : de quelles tailles avez-vous besoin, et en quelle quantité ? Recherche,
   tri, pagination et export CSV. L'attribut porté en colonnes est détecté automatiquement,
   et reste modifiable — la même page peut aussi bien répondre par couleur ou par matière.
+* **Croiser les demandes avec le réassort en cours.** Quand le plugin Real Stock Manager
+  for WooCommerce est actif, ajoute une case sur l'écran « Demandes par taille » qui déduit
+  de chaque déclinaison ce que le stock physique et le commandé fournisseur couvrent déjà,
+  et une carte de valeur sur le bandeau de la liste des inscrits indiquant ce que le
+  commandé fournisseur peut honorer tout de suite. Lecture seule, sans effet si Real Stock
+  Manager est absent.
 * **Désabonnement.** L'extension hôte enregistre le statut « Unsubscribed » et sait le poser
   depuis son administration, mais n'offre au client aucun moyen de s'en servir. Ce module
   remplace le formulaire d'inscription par un bouton de désabonnement, et fournit un lien
@@ -107,6 +113,15 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.8.0 =
+* Nouveau module « Croiser les demandes avec le réassort en cours », activé par défaut :
+  quand le plugin frère Real Stock Manager for WooCommerce est actif, l'écran « Demandes
+  par taille » gagne une case qui déduit de chaque déclinaison ce que le stock physique et
+  le commandé fournisseur couvrent déjà, et le bandeau au-dessus de la liste des inscrits
+  une carte valorisant ce que le commandé fournisseur peut honorer tout de suite — stock
+  physique consommé en premier, commandes clients toujours servies avant la liste
+  d'attente. Sans Real Stock Manager installé et actif, rien ne change sur les deux écrans.
 
 = 0.7.0 =
 * Le taux de conversion se calcule désormais sur les inscriptions notifiées dont la demande est

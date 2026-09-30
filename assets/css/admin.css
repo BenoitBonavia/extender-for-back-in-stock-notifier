@@ -111,6 +111,10 @@
 	color: var( --ebisn-accent );
 }
 
+.ebisn-stat--supply .ebisn-stat__value {
+	color: var( --ebisn-accent );
+}
+
 /*
  * Le taux occupe toute la largeur du bandeau, et non une colonne : c'est la
  * jauge qui porte l'information d'un coup d'œil, et elle n'est lisible qu'avec
@@ -213,6 +217,12 @@
 	text-transform: none;
 	letter-spacing: 0;
 	color: #787c82;
+}
+
+.ebisn-matrix__toggle {
+	display: inline-block;
+	margin: 0 8px 0 4px;
+	line-height: 30px;
 }
 
 /* Ancrée en bas : c'est la comparaison des hauteurs qui porte l'information. */

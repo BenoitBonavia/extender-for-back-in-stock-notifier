@@ -8,6 +8,8 @@
 namespace EBISN\Conversion;
 
 use EBISN\Integration\BackInStockNotifier as Host;
+use EBISN\Integration\RealStockManager;
+use EBISN\Matrix\SupplyCoverage;
 use EBISN\Support\Settings;
 
 defined( 'ABSPATH' ) || exit;
@@ -55,12 +57,12 @@ final class Stats {
 			$cached = get_transient( self::TRANSIENT );
 
 			/*
-			 * `waiting` n'existe que depuis le passage du taux de conversion à un
-			 * dénominateur restreint aux demandes soldées : sa présence sert de
-			 * marqueur de format et fait recalculer un cache écrit par une version
-			 * antérieure, dont le taux se lisait sur un dénominateur différent.
+			 * `waiting` et `supplier_covered` n'existent que depuis leurs
+			 * changements de format respectifs : leur présence sert de marqueur
+			 * et fait recalculer un cache écrit par une version antérieure, qui
+			 * n'aurait pas ces clés.
 			 */
-			if ( is_array( $cached ) && isset( $cached['waiting'] ) ) {
+			if ( is_array( $cached ) && isset( $cached['waiting'] ) && array_key_exists( 'supplier_covered', $cached ) ) {
 				return $cached;
 			}
 		}
@@ -111,15 +113,46 @@ final class Stats {
 		$rate        = $opportunity > 0 ? ( $converted / $opportunity ) * 100 : 0.0;
 
 		return array(
-			'pending'     => $pending,
-			'notified'    => $notified,
-			'recovered'   => $recovered,
-			'rate'        => $rate,
-			'opportunity' => $opportunity,
-			'converted'   => $converted,
-			'waiting'     => $funnel['waiting'],
-			'computed_at' => time(),
+			'pending'          => $pending,
+			'notified'         => $notified,
+			'recovered'        => $recovered,
+			'rate'             => $rate,
+			'opportunity'      => $opportunity,
+			'converted'        => $converted,
+			'waiting'          => $funnel['waiting'],
+			'supplier_covered' => self::supplier_covered( $pending, $notified ),
+			'computed_at'      => time(),
 		);
+	}
+
+	/**
+	 * Valeur de la demande — « en attente » et « non récupéré » confondus,
+	 * comme le fait par défaut l'écran de couverture de Real Stock Manager —
+	 * déjà comblable par du commandé fournisseur non attribué.
+	 *
+	 * `null` quand Real Stock Manager est absent ou son module de croisement
+	 * désactivé : {@see \EBISN\Admin\StatsBanner} s'en sert pour omettre la
+	 * carte plutôt que d'afficher un zéro qui laisserait croire à une mesure
+	 * faite et nulle.
+	 *
+	 * @param array{by_pid: array<int, array{units:int, price:float}>} $pending  Résultat de catalogue_value() pour les statuts « en attente ».
+	 * @param array{by_pid: array<int, array{units:int, price:float}>} $notified Résultat de catalogue_value() pour le statut « non récupéré ».
+	 *
+	 * @return array{value: float, units: int}|null
+	 */
+	private static function supplier_covered( array $pending, array $notified ): ?array {
+		if ( ! SupplyCoverage::is_available() ) {
+			return null;
+		}
+
+		$demand = $pending['by_pid'];
+
+		foreach ( $notified['by_pid'] as $pid => $info ) {
+			$demand[ $pid ]['units'] = ( $demand[ $pid ]['units'] ?? 0 ) + $info['units'];
+			$demand[ $pid ]['price'] = $info['price'];
+		}
+
+		return RealStockManager::value_covered_by_supplier( $demand );
 	}
 
 	/**
@@ -203,7 +236,7 @@ final class Stats {
 	 *
 	 * @param string[] $statuses Statuts d'inscription.
 	 *
-	 * @return array{value:float, subs:int, units:int, products:int, orphans:int, no_price:int}
+	 * @return array{value:float, subs:int, units:int, products:int, orphans:int, no_price:int, by_pid:array<int,array{units:int,price:float}>}
 	 */
 	private static function catalogue_value( array $statuses ): array {
 		global $wpdb;
@@ -215,6 +248,10 @@ final class Stats {
 			'products' => 0,
 			'orphans'  => 0,
 			'no_price' => 0,
+			// Détail par référence, à l'usage de supplier_covered() : ne reprend
+			// que les références valorisables, orphelines et sans prix déjà
+			// écartées par les `continue` ci-dessous.
+			'by_pid'   => array(),
 		);
 
 		if ( empty( $statuses ) || ! function_exists( 'wc_get_product' ) ) {
@@ -272,6 +309,11 @@ final class Stats {
 			}
 
 			$out['value'] += (float) $price * $nb_units;
+
+			$out['by_pid'][ (int) $row->pid ] = array(
+				'units' => $nb_units,
+				'price' => (float) $price,
+			);
 		}
 
 		return $out;
