@@ -147,6 +147,10 @@ if command -v unzip >/dev/null 2>&1; then
 		"$SLUG/src/Renotify/StockWatcher.php" \
 		"$SLUG/src/Renotify/Backfill.php" \
 		"$SLUG/src/Support/Database.php" \
+		"$SLUG/src/Modules/SendHistory.php" \
+		"$SLUG/src/Tracking/DeliveryHistory.php" \
+		"$SLUG/src/Tracking/AlertTracker.php" \
+		"$SLUG/src/Admin/SubscriberColumns.php" \
 		"$SLUG/src/Modules/Reminder.php" \
 		"$SLUG/src/Reminder/ReminderCatchup.php" \
 		"$SLUG/src/Reminder/ReminderEmail.php" \

@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.9.0
+Stable tag: 0.10.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -35,6 +35,9 @@ Modules disponibles :
   jamais prévenue. Ce module la remet en attente dès que le produit redevient indisponible, et
   recommence à chaque cycle jusqu'à l'achat ou le désabonnement. Un rattrapage est lancé une
   fois à l'activation, sur les inscriptions déjà bloquées dans cet état.
+* **Historique des envois par inscription.** Deux colonnes sur la liste des inscrits : combien
+  d'alertes de retour en stock la personne a déjà reçues — plusieurs, après chaque rupture — et
+  combien de relances ont suivi la dernière. Une info-bulle détaille alerte par alerte.
 * **Relances après l'alerte** (désactivé par défaut). L'alerte de retour en stock ne part
   qu'une fois : sans réaction, plus rien ne se passe. Ce module envoie quelques jours plus
   tard un e-mail rappelant que le produit est toujours disponible — une relance, et une
@@ -121,6 +124,14 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.10.0 =
+* Nouveau module « Historique des envois par inscription », activé par défaut : la liste des
+  inscrits gagne les colonnes « Alertes » (nombre d'alertes déjà envoyées, date de la dernière) et
+  « Relances » (relances de l'alerte en cours, total en dessous). Une info-bulle détaille alerte
+  par alerte, rattrapage compris. Les alertes antérieures à l'activation ne sont pas datées : leur
+  nombre est estimé d'après la renotification et signalé par « ≈ ».
+* Les relances sont désormais consignées une à une, avec leur date, leur rang et leur origine.
 
 = 0.9.0 =
 * Nouveau module « Relancer après l'alerte de retour en stock », désactivé par défaut : une

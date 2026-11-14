@@ -120,6 +120,7 @@ final class Plugin {
 				\EBISN\Modules\PurchaseConversion::class,
 				\EBISN\Modules\ConversionStats::class,
 				\EBISN\Modules\Renotify::class,
+				\EBISN\Modules\SendHistory::class,
 				\EBISN\Modules\SizeMatrix::class,
 				\EBISN\Modules\StockCoverage::class,
 				\EBISN\Modules\Unsubscribe::class,

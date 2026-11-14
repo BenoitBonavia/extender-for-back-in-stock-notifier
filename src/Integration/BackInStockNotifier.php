@@ -238,6 +238,30 @@ final class BackInStockNotifier {
 	 */
 	public const HOOK_BEFORE_TRIGGER_STATUS = 'cwginstock_before_trigger_status';
 
+	/**
+	 * `( int $subscriber_id )` — un e-mail d'alerte vient réellement d'être envoyé.
+	 *
+	 * Émis par TOUS les chemins d'envoi réel, automatique comme manuel, et jamais
+	 * pour un envoi désactivé ou en échec. À préférer à `cwginstock_manual_email_sent`,
+	 * que l'action groupée « passer en Mail Sent » émet aussi sans envoyer le moindre
+	 * e-mail. Au moment où il se déclenche, `cwginstock_mail_on` porte encore la date
+	 * de l'alerte PRÉCÉDENTE : l'hôte ne l'écrit qu'ensuite.
+	 */
+	public const HOOK_MAIL_SENT_SUCCESS = 'cwg_instock_mail_sent_success';
+
+	/** `( array $columns )` — filtre des colonnes de la liste des inscrits. */
+	public const HOOK_COLUMNS = 'cwginstocknotifier_columns';
+
+	/**
+	 * `( string $column, int $post_id )` — rendu d'une colonne que l'hôte ne connaît pas.
+	 *
+	 * Même mécanisme que sa propre colonne « Required Quantity ».
+	 */
+	public const HOOK_CUSTOM_COLUMN = 'cwginstock_custom_columns';
+
+	/** Clé de la colonne « Mail Sent on » : nos colonnes s'insèrent juste après. */
+	public const COLUMN_MAIL_ON = 'instockmail_on';
+
 	/** Statut de stock d'un produit indisponible, tel que WooCommerce le nomme. */
 	public const STOCK_OUT = 'outofstock';
 

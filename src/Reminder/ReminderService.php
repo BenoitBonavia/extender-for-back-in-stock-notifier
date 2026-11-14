@@ -12,6 +12,7 @@ use EBISN\Conversion\OrderMatcher;
 use EBISN\Integration\BackInStockNotifier as Host;
 use EBISN\Support\Logger;
 use EBISN\Support\Settings;
+use EBISN\Tracking\DeliveryHistory;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -334,6 +335,9 @@ final class ReminderService {
 		if ( $catchup ) {
 			update_post_meta( $subscription_id, self::META_CATCHUP, time() );
 		}
+
+		// Toujours consignée, que le module d'affichage soit actif ou non.
+		DeliveryHistory::record_reminder( $subscription_id, $step, $catchup );
 
 		Logger::info(
 			sprintf(

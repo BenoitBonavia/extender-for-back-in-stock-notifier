@@ -299,3 +299,22 @@
 .ebisn-matrix__nil {
 	color: #c3c4c7;
 }
+
+/* Colonnes « Alertes » et « Relances » de la liste des inscrits. */
+.column-ebisn_alerts,
+.column-ebisn_reminders {
+	width: 9em;
+}
+
+.ebisn-col {
+	cursor: help;
+}
+
+.ebisn-col__sub {
+	color: #646970;
+	font-size: 12px;
+}
+
+.ebisn-col__nil {
+	color: #c3c4c7;
+}

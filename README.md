@@ -4,7 +4,7 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.9.0
+- **Version** : 0.10.0
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
   Back In Stock Notifier 7.0+ (relu sur 7.5.3)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
@@ -87,6 +87,9 @@ extender-for-back-in-stock-notifier/
     │   ├── SubscriptionQuery.php            Inscriptions notifiées, par produit ou par curseur
     │   ├── StockWatcher.php                 Écoute les ruptures, diffère le traitement
     │   └── Backfill.php                     Rattrapage des inscriptions déjà bloquées
+    ├── Tracking/                            Historique des envois par inscription
+    │   ├── DeliveryHistory.php              Journaux d'alertes et de relances, estimation, info-bulle
+    │   └── AlertTracker.php                 Compte chaque alerte réellement envoyée par l'hôte
     ├── Reminder/                            Relances après l'alerte de retour en stock
     │   ├── ReminderQuery.php                Inscriptions notifiées candidates, par curseur
     │   ├── ReminderService.php              Contrôles à l'envoi, écritures, hooks ebisn_reminder_*
@@ -102,6 +105,7 @@ extender-for-back-in-stock-notifier/
     │   ├── ConversionStats.php              Module « indicateurs »
     │   ├── Renotify.php                     Module « Renotification » (désactivé par défaut)
     │   ├── Reminder.php                     Module « Relances » (désactivé par défaut)
+    │   ├── SendHistory.php                  Module « Historique des envois » : colonnes Alertes et Relances
     │   ├── SizeMatrix.php                   Module « Demandes par taille »
     │   ├── StockCoverage.php                Module « Croiser avec le réassort » (Real Stock Manager)
     │   ├── Unsubscribe.php                  Module « Désabonnement »
@@ -125,6 +129,7 @@ extender-for-back-in-stock-notifier/
 | Marquer « Purchased » | `purchase_conversion` | oui | Fait passer une inscription au statut `cwg_converted` quand son titulaire commande le produit attendu, au fil de l'eau et sur tout l'historique. Annule la conversion en cas de remboursement ou d'annulation. |
 | Valeur des listes d'attente | `conversion_stats` | oui | Affiche au-dessus de la liste des inscrits la valeur en attente, le chiffre d'affaires récupéré et le taux de conversion. |
 | Renotification | `renotify` | **non** | Remet en attente une inscription déjà notifiée dès que son produit repasse en rupture, et recommence à chaque cycle jusqu'à l'achat ou le désabonnement. Reste en veille tant que l'option `keep_status_subscribed` de l'hôte est cochée. |
+| Historique des envois | `send_history` | oui | Ajoute à la liste des inscrits les colonnes « Alertes » (nombre d'alertes envoyées, plusieurs après des ruptures successives) et « Relances » (celles de l'alerte en cours, total en dessous). Compte chaque alerte sur `cwg_instock_mail_sent_success` ; les alertes antérieures sont estimées d'après `_ebisn_notify_cycles` et signalées par « ≈ ». |
 | Relances | `reminder` | **non** | Envoie une relance (J+3 par défaut) puis, en option, une seconde (J+7) aux personnes prévenues du retour en stock qui n'ont pas commandé. Revérifie à l'envoi le stock et les commandes ; ne relance que les alertes postérieures à l'activation. Reste en veille si `keep_status_subscribed` est coché chez l'hôte, ou si les modules `purchase_conversion` ou `unsubscribe` sont inactifs. Une interruption de plus de deux jours (module coupé, planificateur à l'arrêt) remet la date d'activation à aujourd'hui. |
 | Demandes par taille | `size_matrix` | oui | Écran croisant les demandes par produit et par déclinaison, avec recherche, tri, pagination et export CSV. L'attribut porté en colonnes et les statuts comptés sont réglables. |
 | Croiser avec le réassort | `stock_coverage` | oui | Quand Real Stock Manager for WooCommerce est actif : case sur l'écran « Demandes par taille » déduisant ce que le stock physique et le commandé fournisseur couvrent déjà, et carte de valeur sur le bandeau de la liste des inscrits. Sans effet si Real Stock Manager est absent. |
@@ -180,6 +185,20 @@ un échec n'est jamais retenté. Hooks : `ebisn_reminder_sent`, `ebisn_reminder_
 `ebisn_reminder_send_window` (heures d'envoi, 9–20 par défaut), `ebisn_reminder_dry_run` (renvoyer
 `true` pour journaliser sans envoyer ni écrire). L'e-mail est un `WC_Email` (`ebisn_bis_reminder`),
 surchargeable depuis le thème : `woocommerce/emails/reminder.php`.
+
+### Historique des envois
+
+| Méta | Contenu |
+|---|---|
+| `_ebisn_alert_log` | Horodatages des alertes envoyées depuis l'activation du module |
+| `_ebisn_alerts_legacy` | Alertes antérieures au suivi, sans date : `max( _ebisn_notify_cycles, mail_on > 0 ? 1 : 0 )`, posé une fois, à la première alerte suivie |
+| `_ebisn_reminder_log` | Une entrée par relance : `t` horodatage, `s` rang, `c` 1 si rattrapage |
+
+Les alertes se comptent sur `cwg_instock_mail_sent_success`, émis par tous les chemins d'envoi réel
+de l'hôte — et non sur `cwginstock_manual_email_sent`, que l'action groupée « passer en Mail Sent »
+émet aussi sans envoyer d'e-mail. À ce moment `cwginstock_mail_on` porte encore l'alerte précédente,
+ce qui sert à amorcer le compteur. Les relances sont consignées par `ReminderService`, module d'affichage
+actif ou non. La colonne « Relances » affiche en gros celles de l'alerte en cours.
 
 ### Rattrapage à la demande
 
