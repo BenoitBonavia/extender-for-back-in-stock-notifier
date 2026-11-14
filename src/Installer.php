@@ -9,6 +9,8 @@ namespace EBISN;
 
 use EBISN\Brevo\ContactState;
 use EBISN\Integration\BackInStockNotifier;
+use EBISN\Reminder\ReminderCatchup;
+use EBISN\Support\Scheduler;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -82,6 +84,9 @@ final class Installer {
 	 */
 	public static function deactivate(): void {
 		wp_clear_scheduled_hook( 'ebisn_daily_maintenance' );
+		Scheduler::cancel_all( 'ebisn_reminder_sweep' );
+		// Un rattrapage inachevé ne doit pas reprendre seul à la réactivation.
+		ReminderCatchup::abort( 'plugin désactivé' );
 
 		do_action( 'ebisn_deactivated' );
 	}

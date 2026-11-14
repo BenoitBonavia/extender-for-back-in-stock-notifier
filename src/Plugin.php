@@ -123,6 +123,8 @@ final class Plugin {
 				\EBISN\Modules\SizeMatrix::class,
 				\EBISN\Modules\StockCoverage::class,
 				\EBISN\Modules\Unsubscribe::class,
+				// Après `Unsubscribe` : le module de relances en dépend, et ne le voit qu'une fois enregistré.
+				\EBISN\Modules\Reminder::class,
 				\EBISN\Modules\HideAddToCart::class,
 				\EBISN\Modules\BrevoSync::class,
 			)

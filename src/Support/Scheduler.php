@@ -96,6 +96,37 @@ final class Scheduler {
 	}
 
 	/**
+	 * Remplace l'exécution programmée d'un hook par une autre.
+	 *
+	 * Pour qu'un traitement se REPLANIFIE depuis sa propre exécution. Un appel
+	 * `schedule( …, $unique = true )` y échoue : l'action en cours n'est pas
+	 * terminée, Action Scheduler la voit comme doublon et écarte l'insertion sans
+	 * erreur, ce qui rompt la chaîne. On retire donc d'abord ce qui est en attente
+	 * (jamais l'action en cours), puis on programme sans contrainte d'unicité.
+	 *
+	 * @param int        $timestamp Date d'exécution (UNIX).
+	 * @param string     $hook      Nom du hook.
+	 * @param int|string $arg       Argument scalaire unique, ou chaîne vide.
+	 */
+	public static function replace( int $timestamp, string $hook, $arg = '' ): void {
+		self::defer(
+			static function () use ( $timestamp, $hook, $arg ) {
+				$args = self::args( $arg );
+
+				if ( self::is_available() ) {
+					as_unschedule_all_actions( $hook, $args, self::GROUP );
+					as_schedule_single_action( $timestamp, $hook, $args, self::GROUP, false );
+
+					return;
+				}
+
+				wp_clear_scheduled_hook( $hook, $args );
+				self::fallback( $timestamp, $hook, $args, false );
+			}
+		);
+	}
+
+	/**
 	 * Une exécution est-elle déjà programmée ?
 	 *
 	 * @param string     $hook Nom du hook.

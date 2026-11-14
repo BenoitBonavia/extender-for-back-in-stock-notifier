@@ -196,7 +196,8 @@ final class BatchRunner {
 			return;
 		}
 
-		Scheduler::schedule( time() + self::STEP_DELAY, $this->job->get_hook(), '', true );
+		// Depuis l'étape en cours : voir Scheduler::replace().
+		Scheduler::replace( time() + self::STEP_DELAY, $this->job->get_hook() );
 	}
 
 	/**

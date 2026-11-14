@@ -17,7 +17,7 @@ defined( 'ABSPATH' ) || exit;
  * type de contenu ou une constante, seul ce fichier bouge. C'est la contrepartie
  * d'étendre du code qu'on ne maîtrise pas.
  *
- * Relevé sur la version 7.4.2 (ProPluginsLab).
+ * Relevé sur la version 7.5.3 (ProPluginsLab).
  */
 final class BackInStockNotifier {
 
@@ -60,7 +60,7 @@ final class BackInStockNotifier {
 	 * sans que rien ne casse bruyamment. Cette valeur n'empêche rien — elle sert
 	 * à afficher un avertissement dans le diagnostic, seul signal disponible.
 	 */
-	public const TESTED_VERSION = '7.4.2';
+	public const TESTED_VERSION = '7.5.3';
 
 	/**
 	 * Type de contenu des abonnés à une alerte de retour en stock.
@@ -512,6 +512,207 @@ final class BackInStockNotifier {
 	 */
 	public static function plugins_url(): string {
 		return self_admin_url( 'plugins.php' );
+	}
+
+	/*
+	 * ---------------------------------------------------------------------
+	 * Services de l'hôte utilisés pour composer un e-mail
+	 *
+	 * Relevés sur la 7.5.3. Chacun est gardé : l'hôte peut renommer ou retirer
+	 * un de ces points d'entrée, et une relance ne doit alors pas devenir une
+	 * erreur fatale mais simplement perdre l'élément concerné.
+	 * ---------------------------------------------------------------------
+	 */
+
+	/** Version qui introduit le limiteur d'envois. */
+	public const THROTTLE_SINCE = '7.3.0';
+
+	/** Version qui introduit le coupon automatique. */
+	public const COUPON_SINCE = '7.4.0';
+
+	/**
+	 * L'hôte est-il au moins dans cette version ?
+	 *
+	 * Plus fiable que `method_exists()` pour savoir si un service existe : la
+	 * date d'arrivée d'un service est un fait documenté dans son changelog.
+	 *
+	 * @param string $minimum Version minimale.
+	 *
+	 * @return bool
+	 */
+	private static function at_least( string $minimum ): bool {
+		$version = self::version();
+
+		return '' !== $version && version_compare( $version, $minimum, '>=' );
+	}
+
+	/** Date d'expiration (UNIX) du coupon automatique d'une inscription. */
+	public const META_COUPON_EXPIRES = 'cwginstock_coupon_expires';
+
+	/**
+	 * Produit ou déclinaison réellement attendu par une inscription.
+	 *
+	 * Même résolution que l'hôte dans tout son code d'e-mail : la variation qui
+	 * a déclenché la notification (`bypass_pid`) prime sur le produit attendu.
+	 *
+	 * @param int $subscription_id Inscription.
+	 *
+	 * @return int `0` si l'inscription n'en désigne aucun.
+	 */
+	public static function product_id_for( int $subscription_id ): int {
+		$bypass = (int) get_post_meta( $subscription_id, self::META_BYPASS_PID, true );
+
+		if ( $bypass > 0 ) {
+			return $bypass;
+		}
+
+		return (int) get_post_meta( $subscription_id, self::META_PID, true );
+	}
+
+	/** Clés de l'expéditeur configuré dans l'hôte pour ses propres e-mails. */
+	public const SETTING_MAIL_FROM_NAME  = 'mail_from_name';
+	public const SETTING_MAIL_FROM_EMAIL = 'mail_from_email';
+	public const SETTING_MAIL_REPLY_TO   = 'mail_reply_to';
+
+	/**
+	 * Valeur d'un réglage d'expéditeur de l'hôte.
+	 *
+	 * Une relance doit partir de la même adresse que l'alerte : changer
+	 * d'expéditeur d'un e-mail à l'autre est le meilleur moyen de la voir
+	 * classée comme indésirable.
+	 *
+	 * @param string $key Une des constantes `SETTING_MAIL_*`.
+	 *
+	 * @return string Chaîne vide si le marchand n'a rien saisi.
+	 */
+	public static function mail_setting( string $key ): string {
+		$settings = self::settings();
+
+		return isset( $settings[ $key ] ) && is_scalar( $settings[ $key ] ) ? trim( (string) $settings[ $key ] ) : '';
+	}
+
+	/**
+	 * Utilitaires de l'hôte autour d'une inscription.
+	 *
+	 * @return \CWG_Instock_API|null `null` si l'hôte ne la fournit pas.
+	 */
+	public static function api(): ?\CWG_Instock_API {
+		return class_exists( '\CWG_Instock_API' ) ? new \CWG_Instock_API() : null;
+	}
+
+	/**
+	 * Réserve un créneau auprès du limiteur d'envois de l'hôte.
+	 *
+	 * Sans attente : `wait_for_slot()` dormirait jusqu'à dix secondes, ce qui
+	 * n'a pas sa place dans un passage qui en traite des dizaines. L'appelant
+	 * reporte simplement l'inscription au passage suivant.
+	 *
+	 * @return bool Vrai si l'envoi est autorisé — aussi quand le limiteur est absent ou inactif.
+	 */
+	public static function try_acquire_send_slot(): bool {
+		if ( ! self::at_least( self::THROTTLE_SINCE ) || ! class_exists( '\CWG_Instock_Mail_Throttle' ) ) {
+			return true;
+		}
+
+		return (bool) \CWG_Instock_Mail_Throttle::try_acquire();
+	}
+
+	/**
+	 * Ajoute les balises UTM configurées dans l'hôte à un lien.
+	 *
+	 * @param string $url     Lien.
+	 * @param string $context Emplacement du lien, pour l'étiquette `utm_content`.
+	 *
+	 * @return string
+	 */
+	public static function utm( string $url, string $context ): string {
+		if ( ! function_exists( 'cwg_instock_add_utm_params' ) ) {
+			return $url;
+		}
+
+		$tagged = cwg_instock_add_utm_params( $url, $context );
+
+		return is_string( $tagged ) ? $tagged : $url;
+	}
+
+	/**
+	 * Tableau « article de commande » du produit attendu.
+	 *
+	 * @param int $subscription_id Inscription.
+	 *
+	 * @return string HTML, vide si l'hôte ne le fournit pas.
+	 */
+	public static function product_table_html( int $subscription_id ): string {
+		if ( ! function_exists( 'cwg_instock_get_product_table_html' ) ) {
+			return '';
+		}
+
+		return (string) cwg_instock_get_product_table_html( $subscription_id, false );
+	}
+
+	/**
+	 * Le coupon automatique de l'hôte est-il actif ?
+	 *
+	 * @return bool
+	 */
+	public static function coupon_enabled(): bool {
+		return self::at_least( self::COUPON_SINCE )
+			&& class_exists( '\CWG_Instock_Auto_Coupon' )
+			&& (bool) \CWG_Instock_Auto_Coupon::is_enabled();
+	}
+
+	/**
+	 * Coupon d'une inscription : celui de l'alerte s'il est encore valable, sinon un nouveau.
+	 *
+	 * @param int $subscription_id Inscription.
+	 *
+	 * @return array{code:string, amount:string, expires:int} `code` vide si aucun coupon.
+	 */
+	public static function coupon_for( int $subscription_id ): array {
+		$none = array(
+			'code'    => '',
+			'amount'  => '',
+			'expires' => 0,
+		);
+
+		if ( ! self::coupon_enabled() ) {
+			return $none;
+		}
+
+		$code = (string) \CWG_Instock_Auto_Coupon::get_coupon_for_subscriber( $subscription_id );
+
+		if ( '' === $code ) {
+			return $none;
+		}
+
+		return array(
+			'code'    => $code,
+			'amount'  => (string) \CWG_Instock_Auto_Coupon::format_amount(),
+			'expires' => (int) get_post_meta( $subscription_id, self::META_COUPON_EXPIRES, true ),
+		);
+	}
+
+	/**
+	 * Bloc de coupon prêt à l'emploi de l'hôte.
+	 *
+	 * @param string $code    Code.
+	 * @param string $amount  Remise, formatée.
+	 * @param int    $expires Expiration (UNIX), `0` si le coupon n'expire pas.
+	 * @param string $link    Lien du bouton.
+	 *
+	 * @return string HTML, vide si l'hôte ne le fournit pas.
+	 */
+	public static function coupon_box_html( string $code, string $amount, int $expires, string $link ): string {
+		if ( '' === $code || ! function_exists( 'cwg_instock_get_coupon_box_html' ) ) {
+			return '';
+		}
+
+		return (string) cwg_instock_get_coupon_box_html(
+			$code,
+			$amount,
+			$expires > 0 ? wp_date( (string) get_option( 'date_format' ), $expires ) : '',
+			$link
+		);
 	}
 
 	/**

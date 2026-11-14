@@ -4,9 +4,9 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.8.0
+- **Version** : 0.9.0
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
-  Back In Stock Notifier 7.0+ (relu sur 7.4.2)
+  Back In Stock Notifier 7.0+ (relu sur 7.5.3)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
 - **Text domain** : `extender-for-back-in-stock-notifier` (doit rester identique au slug du dossier)
 - **Licence** : GPL-3.0-or-later — alignée sur celle du plugin hôte, pour qu'adapter un de
@@ -87,6 +87,12 @@ extender-for-back-in-stock-notifier/
     │   ├── SubscriptionQuery.php            Inscriptions notifiées, par produit ou par curseur
     │   ├── StockWatcher.php                 Écoute les ruptures, diffère le traitement
     │   └── Backfill.php                     Rattrapage des inscriptions déjà bloquées
+    ├── Reminder/                            Relances après l'alerte de retour en stock
+    │   ├── ReminderQuery.php                Inscriptions notifiées candidates, par curseur
+    │   ├── ReminderService.php              Contrôles à l'envoi, écritures, hooks ebisn_reminder_*
+    │   ├── ReminderSweep.php                Passage horaire auto-replanifié, plage d'envoi
+    │   ├── ReminderEmail.php                E-mail WooCommerce, deux jeux de champs
+    │   └── ReminderMailer.php               Enregistrement de l'e-mail, expéditeur de l'hôte
     ├── Migration/
     │   └── LegacyConversionMeta.php         Reprise des métadonnées des snippets WPCode
     ├── Modules/
@@ -95,6 +101,7 @@ extender-for-back-in-stock-notifier/
     │   ├── PurchaseConversion.php           Module « Purchased »
     │   ├── ConversionStats.php              Module « indicateurs »
     │   ├── Renotify.php                     Module « Renotification » (désactivé par défaut)
+    │   ├── Reminder.php                     Module « Relances » (désactivé par défaut)
     │   ├── SizeMatrix.php                   Module « Demandes par taille »
     │   ├── StockCoverage.php                Module « Croiser avec le réassort » (Real Stock Manager)
     │   ├── Unsubscribe.php                  Module « Désabonnement »
@@ -118,6 +125,7 @@ extender-for-back-in-stock-notifier/
 | Marquer « Purchased » | `purchase_conversion` | oui | Fait passer une inscription au statut `cwg_converted` quand son titulaire commande le produit attendu, au fil de l'eau et sur tout l'historique. Annule la conversion en cas de remboursement ou d'annulation. |
 | Valeur des listes d'attente | `conversion_stats` | oui | Affiche au-dessus de la liste des inscrits la valeur en attente, le chiffre d'affaires récupéré et le taux de conversion. |
 | Renotification | `renotify` | **non** | Remet en attente une inscription déjà notifiée dès que son produit repasse en rupture, et recommence à chaque cycle jusqu'à l'achat ou le désabonnement. Reste en veille tant que l'option `keep_status_subscribed` de l'hôte est cochée. |
+| Relances | `reminder` | **non** | Envoie une relance (J+3 par défaut) puis, en option, une seconde (J+7) aux personnes prévenues du retour en stock qui n'ont pas commandé. Revérifie à l'envoi le stock et les commandes ; ne relance que les alertes postérieures à l'activation. Reste en veille si `keep_status_subscribed` est coché chez l'hôte, ou si les modules `purchase_conversion` ou `unsubscribe` sont inactifs. Une interruption de plus de deux jours (module coupé, planificateur à l'arrêt) remet la date d'activation à aujourd'hui. |
 | Demandes par taille | `size_matrix` | oui | Écran croisant les demandes par produit et par déclinaison, avec recherche, tri, pagination et export CSV. L'attribut porté en colonnes et les statuts comptés sont réglables. |
 | Croiser avec le réassort | `stock_coverage` | oui | Quand Real Stock Manager for WooCommerce est actif : case sur l'écran « Demandes par taille » déduisant ce que le stock physique et le commandé fournisseur couvrent déjà, et carte de valeur sur le bandeau de la liste des inscrits. Sans effet si Real Stock Manager est absent. |
 | Désabonnement | `unsubscribe` | oui | Remplace le formulaire d'inscription par un bouton de désabonnement, et fournit un lien signé aux e-mails. Libellé et messages réglables. |
@@ -148,6 +156,59 @@ Le calcul de couverture n'est jamais réécrit ici : `RealStockManager::availabl
 `RealStockManager::value_covered_by_supplier()` recopient très exactement
 `RSMW\BackInStock\Coverage::available_breakdown()` — stock physique consommé avant le
 commandé fournisseur, commandes clients en attente toujours servies en premier.
+
+## Relances
+
+Une inscription est relancée au rang *n* quand son statut est `cwg_mailsent`, que
+`cwginstock_mail_on + délai(n)` est échu et que l'alerte est postérieure à l'activation du
+module (`ebisn_reminder_since`, posée au premier passage — aucun rattrapage de l'historique).
+Les contrôles sont rejoués **à l'envoi** : produit en stock au-dessus du plancher, aucune commande
+« vivante » (tout statut hors annulée, échouée, remboursée) contenant le produit depuis
+l'inscription.
+
+| Méta | Rôle |
+|---|---|
+| `_ebisn_reminder_sent` | Dernier rang traité — envoyé OU sauté — sur le cycle courant |
+| `_ebisn_reminder_cycle` | `cwginstock_mail_on` auquel le compteur se rapporte ; s'il change (renotification), le compteur repart de zéro |
+| `_ebisn_reminder_{n}_at` | Horodatage d'envoi de la relance *n* |
+| `_ebisn_reminder_{n}_skipped` / `_skipped_at` | Motif et date d'une relance sautée (`out_of_stock`, `order_exists`, `stale`…) |
+| `_ebisn_reminder_error` | Dernier échec d'envoi |
+
+Le rang est écrit **avant** l'envoi : une relance perdue vaut mieux qu'une relance en double, et
+un échec n'est jamais retenté. Hooks : `ebisn_reminder_sent`, `ebisn_reminder_skipped`
+(`$id, $step[, $reason]`), filtres `ebisn_reminder_block_reason`, `ebisn_reminder_placeholders`,
+`ebisn_reminder_send_window` (heures d'envoi, 9–20 par défaut), `ebisn_reminder_dry_run` (renvoyer
+`true` pour journaliser sans envoyer ni écrire). L'e-mail est un `WC_Email` (`ebisn_bis_reminder`),
+surchargeable depuis le thème : `woocommerce/emails/reminder.php`.
+
+### Rattrapage à la demande
+
+Le balayage automatique ignore les alertes antérieures à l'activation. Pour les relancer, le
+marchand dispose, dans Réglages → Relances → « Rattrapage de l'existant », d'un bouton qui
+envoie la **relance 1** aux inscriptions à « Alerte envoyée » dont l'alerte a plus que le délai
+de la première relance, moins que l'ancienneté maximale réglée (30 jours par défaut) et **précède
+l'activation du module** — les suivantes relèvent du balayage automatique, et les rattraper ici
+leur ôterait leur seconde relance —, et qui n'ont **jamais été relancées** sur ce cycle. Rien ne le démarre à l'activation du module ni à une
+mise à jour — `ReminderCatchup::start()` n'est appelé que depuis ce bouton.
+
+- Mêmes contrôles qu'un envoi automatique, à l'envoi, **sauf la péremption** (`stale`).
+- Passages de 50 envois toutes les 5 min, entre 9 h et 20 h, limiteur de l'hôte respecté ; le
+  curseur n'avance qu'après traitement, et un limiteur saturé arrête le passage sans le dépasser.
+- Un destinataire du rattrapage n'est **pas** relancé une seconde fois ensuite : le rang final est
+  consigné d'emblée (`_ebisn_reminder_sent`), et la date par `_ebisn_reminder_catchup_at`.
+- Le décompte affiché est un **majorant** : le stock et les commandes ne se vérifient qu'à l'envoi.
+- « M'envoyer un test » envoie le modèle à l'adresse de l'utilisateur connecté, avec le produit et le
+  prénom d'une inscription réelle mais un lien de désabonnement et un coupon **factices**, et sans
+  rien écrire. Pour journaliser le rattrapage sans envoyer, filtrer `ebisn_reminder_dry_run` à `true`.
+- Les boutons passent par un lien à jeton, exécuté **avant** l'affichage, puis redirigent vers l'adresse
+  nue : recharger la page ne rejoue jamais l'action. Les messages transitent par un transient.
+- « Arrêter » est définitif ; désactiver le plugin arrête aussi un rattrapage en cours, et un rattrapage
+  resté sans activité plus d'un jour est abandonné plutôt que repris par le chien de garde.
+- Hooks : `ebisn_reminder_catchup_started`, `ebisn_reminder_catchup_finished`.
+
+> ⚠️ La suppression automatique de l'hôte (`enable_auto_delete`) efface les « Mail Sent » selon la
+> date d'**inscription** : allonger sa durée au-delà du délai de la dernière relance, faute de quoi
+> les inscriptions disparaissent avant d'être relancées. Le Diagnostic le signale.
 
 ## Reprise depuis les snippets WPCode
 
@@ -187,6 +248,8 @@ WooCommerce → État → Actions programmées.
 | `ebisn_brevo_backfill_poll` | Vérifie l'issue d'un import Brevo |
 | `ebisn_renotify_product` | Remet en attente les inscrits d'un produit repassé en rupture |
 | `ebisn_renotify_backfill_step` | Une étape du rattrapage des renotifications |
+| `ebisn_reminder_sweep` | Passage horaire des relances dues, entre 9 h et 20 h (heure du site) |
+| `ebisn_reminder_catchup_step` | Un passage du rattrapage des relances, lancé à la demande par un bouton |
 
 Les arguments passés sont toujours **scalaires** : `wp-cron.php` transmet les arguments
 d'un événement sans les réindexer, et une clé de chaîne devient un argument nommé en PHP 8 —
@@ -233,7 +296,7 @@ final class MonModule extends AbstractModule {
 
 ## Surface d'extension du plugin hôte
 
-Relevé sur l'archive **7.4.2** (`cwginstocknotifier.php`, dossier
+Relevé sur l'archive **7.5.3** (`cwginstocknotifier.php`, dossier
 `back-in-stock-notifier-for-woocommerce/`). À revérifier à chaque changement de version
 majeure de l'hôte — c'est précisément ce que signale le panneau Diagnostic.
 

@@ -49,6 +49,9 @@ function ebisn_uninstall_delete_options(): void {
 		ebisn_uninstall_restore_statuses();
 	}
 
+	// Réglages de l'e-mail de relance, enregistrés par WooCommerce sous son propre nom.
+	delete_option( 'woocommerce_ebisn_bis_reminder_settings' );
+
 	ebisn_uninstall_delete_meta();
 	ebisn_uninstall_drop_tables();
 
@@ -145,6 +148,10 @@ function ebisn_uninstall_clear_schedules(): void {
 		'ebisn_brevo_sync_contact',
 		'ebisn_brevo_backfill_step',
 		'ebisn_brevo_backfill_poll',
+		'ebisn_renotify_product',
+		'ebisn_renotify_backfill_step',
+		'ebisn_reminder_sweep',
+		'ebisn_reminder_catchup_step',
 	);
 
 	foreach ( $hooks as $hook ) {

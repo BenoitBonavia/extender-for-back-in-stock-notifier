@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.8.0
+Stable tag: 0.9.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -35,6 +35,14 @@ Modules disponibles :
   jamais prévenue. Ce module la remet en attente dès que le produit redevient indisponible, et
   recommence à chaque cycle jusqu'à l'achat ou le désabonnement. Un rattrapage est lancé une
   fois à l'activation, sur les inscriptions déjà bloquées dans cet état.
+* **Relances après l'alerte** (désactivé par défaut). L'alerte de retour en stock ne part
+  qu'une fois : sans réaction, plus rien ne se passe. Ce module envoie quelques jours plus
+  tard un e-mail rappelant que le produit est toujours disponible — une relance, et une
+  seconde facultative, avec un code promo en option. Elle ne part que si le produit est
+  encore en stock et que la personne n'a ni commandé ni quitté la liste ; chaque e-mail porte
+  un lien de désabonnement. Seules les alertes envoyées après l'activation sont relancées
+  automatiquement ; un bouton de rattrapage, à lancer à la main une fois les modèles relus et
+  testés par un e-mail de contrôle, relance les alertes plus anciennes.
 * **Demandes par taille.** Un écran croisant les demandes de retour en stock par produit et
   par déclinaison : de quelles tailles avez-vous besoin, et en quelle quantité ? Recherche,
   tri, pagination et export CSV. L'attribut porté en colonnes est détecté automatiquement,
@@ -113,6 +121,23 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.9.0 =
+* Nouveau module « Relancer après l'alerte de retour en stock », désactivé par défaut : une
+  relance à J+3 (réglable), une seconde facultative à J+7 comptée depuis l'alerte, avec code
+  promo en option sur la dernière. Chaque relance est revérifiée juste avant l'envoi : produit
+  encore en stock au-dessus d'un plancher réglable, aucune commande vivante de la personne
+  contenant le produit — y compris en attente de virement —, inscription toujours à « Alerte
+  envoyée ». Envoi par passages horaires entre 9 h et 20 h, plafonnés, sans jamais retenter
+  un envoi en échec. L'e-mail se règle dans WooCommerce → Réglages → E-mails. Le module se met
+  en veille, avec un message dans le Diagnostic, si « Keep Subscription Entry to Subscribed
+  Status » est coché chez l'hôte ou si le module « Purchased » ou « Désabonnement » est désactivé.
+* Rattrapage des relances à la demande : un bouton relance, par passages entre 9 h et 20 h, les
+  personnes prévenues il y a plus de trois jours (et moins de 30 par défaut, réglable) qui n'ont
+  jamais été relancées. Rien ne part à l'activation. Un bouton « M'envoyer un test » permet de
+  contrôler les modèles d'e-mail avant, avec un lien de désabonnement et un coupon factices.
+* Relu contre Back In Stock Notifier 7.5.3.
+* La désinstallation annule aussi les actions de renotification, jusque-là oubliées.
 
 = 0.8.0 =
 * Nouveau module « Croiser les demandes avec le réassort en cours », activé par défaut :

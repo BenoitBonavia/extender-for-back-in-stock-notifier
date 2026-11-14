@@ -7,6 +7,8 @@
 
 namespace EBISN\Conversion;
 
+use EBISN\Support\Database;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -57,6 +59,91 @@ final class OrderLookup {
 	}
 
 	/**
+	 * Une commande encore « vivante » contient-elle l'un de ces produits depuis une date ?
+	 *
+	 * Plus large que la conversion : elle ne se limite pas aux statuts valant
+	 * achat. Une commande en attente de virement ou de paiement n'est pas encore
+	 * un achat au sens des statistiques, mais relancer son auteur pour le produit
+	 * qu'il vient de commander serait absurde. Seules les commandes annulées,
+	 * échouées, remboursées ou jamais validées sont écartées.
+	 *
+	 * @param string[] $emails      Adresses normalisées.
+	 * @param int[]    $user_ids    Comptes clients.
+	 * @param int[]    $product_ids Produits et variations recherchés.
+	 * @param int      $since       Horodatage UNIX UTC : commandes antérieures ignorées.
+	 *
+	 * @return bool
+	 */
+	public function has_live_order_for( array $emails, array $user_ids, array $product_ids, int $since ): bool {
+		$product_ids = array_values( array_unique( array_filter( array_map( 'intval', $product_ids ) ) ) );
+
+		if ( empty( $product_ids ) || ! function_exists( 'wc_get_order_statuses' ) ) {
+			return false;
+		}
+
+		/**
+		 * Statuts de commande qui ne comptent PAS comme un achat en cours.
+		 *
+		 * @param string[] $statuses Statuts préfixés `wc-`.
+		 */
+		$excluded = (array) apply_filters(
+			'ebisn_reminder_excluded_order_statuses',
+			array( 'wc-cancelled', 'wc-failed', 'wc-refunded', 'wc-checkout-draft' )
+		);
+
+		$live = array_values( array_diff( array_keys( wc_get_order_statuses() ), $excluded ) );
+
+		$emails   = array_values( array_unique( array_filter( $emails ) ) );
+		$user_ids = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+
+		if ( empty( $live ) || ( empty( $emails ) && empty( $user_ids ) ) ) {
+			return false;
+		}
+
+		$orders = $this->query_orders( $emails, $user_ids, $live );
+
+		// Une lecture en échec ressemble à « aucune commande » : on ne relance pas sur ce doute.
+		$orders_failed = $this->query_failed();
+
+		if ( $orders_failed ) {
+			return true;
+		}
+
+		foreach ( $orders as $order_id => $order ) {
+			if ( $order['created_at'] < $since ) {
+				unset( $orders[ $order_id ] );
+			}
+		}
+
+		if ( empty( $orders ) ) {
+			return false;
+		}
+
+		$lines = $this->query_order_products( array_keys( $orders ) );
+
+		if ( $this->query_failed() ) {
+			return true;
+		}
+
+		foreach ( $lines as $ids ) {
+			if ( array_intersect( $ids, $product_ids ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * La dernière requête a-t-elle échoué ?
+	 *
+	 * @return bool
+	 */
+	private function query_failed(): bool {
+		return '' !== Database::last_error();
+	}
+
+	/**
 	 * WooCommerce stocke-t-il ses commandes dans ses propres tables ?
 	 *
 	 * @return bool
@@ -72,29 +159,32 @@ final class OrderLookup {
 	/**
 	 * Charge les commandes éligibles des acheteurs demandés.
 	 *
-	 * @param string[] $emails   Adresses normalisées.
-	 * @param int[]    $user_ids Comptes clients.
+	 * @param string[]      $emails   Adresses normalisées.
+	 * @param int[]         $user_ids Comptes clients.
+	 * @param string[]|null $prefixed Statuts préfixés `wc-` ; ceux qui valent achat si `null`.
 	 *
 	 * @return array<int, array{id:int, email:string, user_id:int, created_at:int, products:int[]}>
 	 */
-	private function query_orders( array $emails, array $user_ids ): array {
+	private function query_orders( array $emails, array $user_ids, ?array $prefixed = null ): array {
 		global $wpdb;
 
-		$statuses = OrderMatcher::order_statuses();
+		if ( null === $prefixed ) {
+			$statuses = OrderMatcher::order_statuses();
 
-		if ( empty( $statuses ) ) {
+			// Les statuts sont préfixés `wc-` dans les deux schémas de stockage.
+			$prefixed = array_map(
+				static function ( string $status ): string {
+					return 'wc-' . $status;
+				},
+				$statuses
+			);
+		}
+
+		if ( empty( $prefixed ) ) {
 			return array();
 		}
 
 		$custom_tables = $this->uses_custom_tables();
-
-		// Les statuts sont préfixés `wc-` dans les deux schémas de stockage.
-		$prefixed = array_map(
-			static function ( string $status ): string {
-				return 'wc-' . $status;
-			},
-			$statuses
-		);
 
 		$identity = array();
 		$params   = array();

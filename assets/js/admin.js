@@ -8,7 +8,18 @@
 
 	var EBISN = {
 		init: function () {
-			// Les interactions des modules viendront se brancher ici.
+			/*
+			 * Confirmation avant une action de masse. Le message est lu dans
+			 * `title` plutôt que dans un attribut `data-*` : les champs `info` de
+			 * WooCommerce passent par wp_kses_post(), qui conserve `class` et `title`.
+			 */
+			$( document ).on( 'click', 'a.ebisn-confirm', function ( event ) {
+				var message = $( this ).attr( 'title' );
+
+				if ( message && ! window.confirm( message ) ) {
+					event.preventDefault();
+				}
+			} );
 		}
 	};
 

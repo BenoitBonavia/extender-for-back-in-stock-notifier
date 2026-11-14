@@ -86,6 +86,7 @@ final class SettingsPage {
 			// L'enregistrement doit précéder tout affichage, sans quoi la page
 			// se dessinerait avec les valeurs d'avant la soumission.
 			add_action( 'load-' . $hook, array( $this, 'maybe_save' ) );
+			add_action( 'load-' . $hook, array( $this, 'maybe_run_actions' ) );
 			add_action( 'admin_print_styles-' . $hook, array( $this, 'enqueue_assets' ) );
 		}
 	}
@@ -150,6 +151,60 @@ final class SettingsPage {
 	}
 
 	/**
+	 * Exécute une action demandée par lien, puis redirige vers l'adresse nue.
+	 *
+	 * Avant tout affichage : WooCommerce imprime ses messages au début de la page,
+	 * donc un message ajouté pendant le rendu n'apparaîtrait jamais. Les messages
+	 * passent par une mémoire de courte durée, relue à l'affichage suivant.
+	 */
+	public function maybe_run_actions(): void {
+		$flash = $this->fields()->handle_reminder_actions();
+
+		if ( empty( $flash ) ) {
+			return;
+		}
+
+		set_transient( self::flash_key(), $flash, MINUTE_IN_SECONDS );
+
+		wp_safe_redirect( self::url( 'reminder' ) );
+		exit;
+	}
+
+	/**
+	 * Clé de la mémoire des messages, propre à l'utilisateur.
+	 *
+	 * @return string
+	 */
+	private static function flash_key(): string {
+		return 'ebisn_flash_' . get_current_user_id();
+	}
+
+	/**
+	 * Affiche, une seule fois, les messages laissés par l'action précédente.
+	 */
+	private function show_flash(): void {
+		$flash = get_transient( self::flash_key() );
+
+		if ( ! is_array( $flash ) ) {
+			return;
+		}
+
+		delete_transient( self::flash_key() );
+
+		foreach ( $flash as $item ) {
+			if ( ! is_array( $item ) || ! isset( $item['type'], $item['text'] ) ) {
+				continue;
+			}
+
+			if ( 'error' === $item['type'] ) {
+				\WC_Admin_Settings::add_error( (string) $item['text'] );
+			} else {
+				\WC_Admin_Settings::add_message( (string) $item['text'] );
+			}
+		}
+	}
+
+	/**
 	 * Affiche la page.
 	 */
 	public function render(): void {
@@ -163,6 +218,8 @@ final class SettingsPage {
 		echo '<div class="wrap woocommerce">';
 
 		echo '<h1>' . esc_html__( 'Réglages Extender', 'extender-for-back-in-stock-notifier' ) . '</h1>';
+
+		$this->show_flash();
 
 		\WC_Admin_Settings::show_messages();
 

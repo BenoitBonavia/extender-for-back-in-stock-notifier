@@ -19,6 +19,12 @@ use EBISN\Plugin;
 use EBISN\Renotify\Backfill as RenotifyBackfill;
 use EBISN\Renotify\RenotifyService;
 use EBISN\Renotify\SubscriptionQuery;
+use EBISN\Modules\Reminder as ReminderModule;
+use EBISN\Reminder\ReminderCatchup;
+use EBISN\Reminder\ReminderMailer;
+use EBISN\Reminder\ReminderQuery;
+use EBISN\Reminder\ReminderService;
+use EBISN\Reminder\ReminderSweep;
 use EBISN\Support\JobState;
 use EBISN\Support\Settings;
 use EBISN\Unsubscribe\VisitorCookie;
@@ -50,6 +56,16 @@ final class SettingsFields extends \WC_Settings_Page {
 	 * Paramètre d'URL demandant la relance du rattrapage des renotifications.
 	 */
 	private const RESTART_ARG = 'ebisn_restart_renotify';
+
+	/**
+	 * Paramètre d'URL demandant un e-mail de test d'une relance (`1` ou `2`).
+	 */
+	private const REMINDER_TEST_ARG = 'ebisn_reminder_test';
+
+	/**
+	 * Paramètre d'URL pilotant le rattrapage des relances (`start` ou `stop`).
+	 */
+	private const REMINDER_CATCHUP_ARG = 'ebisn_reminder_catchup';
 
 	/**
 	 * Type de champ propre à l'activation d'un module.
@@ -157,6 +173,7 @@ final class SettingsFields extends \WC_Settings_Page {
 			'modules'     => __( 'Modules', 'extender-for-back-in-stock-notifier' ),
 			'conversion'  => __( 'Conversion', 'extender-for-back-in-stock-notifier' ),
 			'renotify'    => __( 'Renotification', 'extender-for-back-in-stock-notifier' ),
+			'reminder'    => __( 'Relances', 'extender-for-back-in-stock-notifier' ),
 			'matrix'      => __( 'Demandes par taille', 'extender-for-back-in-stock-notifier' ),
 			'unsubscribe' => __( 'Désabonnement', 'extender-for-back-in-stock-notifier' ),
 			'brevo'       => __( 'Brevo', 'extender-for-back-in-stock-notifier' ),
@@ -474,6 +491,362 @@ final class SettingsFields extends \WC_Settings_Page {
 		);
 
 		return $settings;
+	}
+
+	/**
+	 * Champs de la section « Relances ».
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	protected function get_settings_for_reminder_section(): array {
+		return array(
+			array(
+				'title' => __( 'Relances', 'extender-for-back-in-stock-notifier' ),
+				'type'  => 'title',
+				'desc'  => $this->reminder_intro(),
+				'id'    => Settings::PREFIX . 'reminder_options',
+			),
+			array(
+				'title'             => __( 'Première relance', 'extender-for-back-in-stock-notifier' ),
+				'desc'              => __( 'jours après l’alerte', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip'          => __( 'Délai entre l’alerte de retour en stock et la première relance.', 'extender-for-back-in-stock-notifier' ),
+				'id'                => Settings::PREFIX . 'reminder_delay_1_days',
+				'type'              => 'number',
+				'default'           => ReminderService::DEFAULT_DELAY_1,
+				'css'               => 'width:100px;',
+				'custom_attributes' => array( 'min' => 1 ),
+			),
+			array(
+				'title'   => __( 'Seconde relance', 'extender-for-back-in-stock-notifier' ),
+				'desc'    => __( 'Envoyer une seconde relance', 'extender-for-back-in-stock-notifier' ),
+				'id'      => Settings::PREFIX . 'reminder_second_enabled',
+				'type'    => 'checkbox',
+				'default' => 'no',
+			),
+			array(
+				'title'             => __( 'Délai de la seconde relance', 'extender-for-back-in-stock-notifier' ),
+				'desc'              => __( 'jours après l’alerte', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip'          => __( 'Compté depuis l’alerte de retour en stock, pas depuis la première relance. Toujours au moins un jour après la première.', 'extender-for-back-in-stock-notifier' ),
+				'id'                => Settings::PREFIX . 'reminder_delay_2_days',
+				'type'              => 'number',
+				'default'           => ReminderService::DEFAULT_DELAY_2,
+				'css'               => 'width:100px;',
+				'custom_attributes' => array( 'min' => 2 ),
+			),
+			array(
+				'title'             => __( 'Plancher de stock', 'extender-for-back-in-stock-notifier' ),
+				'desc'              => __( 'unité(s)', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip'          => __( 'Plus de relance quand le stock tombe à ce niveau ou en dessous. 0 : seule la rupture arrête la relance. Ne s’applique qu’aux produits dont le stock est géré.', 'extender-for-back-in-stock-notifier' ),
+				'id'                => Settings::PREFIX . 'reminder_stock_floor',
+				'type'              => 'number',
+				'default'           => 0,
+				'css'               => 'width:100px;',
+				'custom_attributes' => array( 'min' => 0 ),
+			),
+			array(
+				'title'    => __( 'Code promo', 'extender-for-back-in-stock-notifier' ),
+				'desc'     => __( 'Offrir un code promo dans la dernière relance', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip' => __( 'Réutilise le coupon automatique de l’extension hôte, propre à la personne et au produit. Il faut qu’il soit activé chez elle, et que le texte de la relance contienne une balise de coupon, par exemple {coupon_box}.', 'extender-for-back-in-stock-notifier' ),
+				'id'       => Settings::PREFIX . 'reminder_coupon_last',
+				'type'     => 'checkbox',
+				'default'  => 'no',
+			),
+			array(
+				'title'             => __( 'Envois par passage', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip'          => __( 'Nombre maximal de relances envoyées à chaque passage, qui a lieu toutes les heures, entre 9 h et 20 h. Les suivantes partent au passage d’après.', 'extender-for-back-in-stock-notifier' ),
+				'id'                => Settings::PREFIX . 'reminder_batch',
+				'type'              => 'number',
+				'default'           => ReminderSweep::DEFAULT_BATCH,
+				'css'               => 'width:100px;',
+				'custom_attributes' => array( 'min' => 1 ),
+			),
+			array(
+				'type' => 'sectionend',
+				'id'   => Settings::PREFIX . 'reminder_options',
+			),
+			array(
+				'title' => __( 'Rattrapage de l’existant', 'extender-for-back-in-stock-notifier' ),
+				'type'  => 'title',
+				'desc'  => esc_html__( 'Relance, une fois et sur votre demande seulement, les personnes prévenues il y a plus longtemps que le délai de la première relance et jamais relancées depuis. Rien ne part à l’activation du module : relisez d’abord vos modèles d’e-mail.', 'extender-for-back-in-stock-notifier' ),
+				'id'    => Settings::PREFIX . 'reminder_catchup_options',
+			),
+			array(
+				'title'             => __( 'Ancienneté maximale', 'extender-for-back-in-stock-notifier' ),
+				'desc'              => __( 'jours', 'extender-for-back-in-stock-notifier' ),
+				'desc_tip'          => __( 'Les alertes plus anciennes ne sont pas rattrapées : « nous vous avons prévenu il y a quelques jours » sonnerait faux, et le produit a pu changer de situation depuis. Enregistrez avant de lancer le rattrapage.', 'extender-for-back-in-stock-notifier' ),
+				'id'                => Settings::PREFIX . 'reminder_catchup_max_age_days',
+				'type'              => 'number',
+				'default'           => ReminderCatchup::DEFAULT_MAX_AGE_DAYS,
+				'css'               => 'width:100px;',
+				'custom_attributes' => array( 'min' => 1 ),
+			),
+			array(
+				'title' => __( 'Lancer', 'extender-for-back-in-stock-notifier' ),
+				'type'  => 'info',
+				'text'  => $this->reminder_catchup_text(),
+				'id'    => Settings::PREFIX . 'reminder_catchup_info',
+			),
+			array(
+				'type' => 'sectionend',
+				'id'   => Settings::PREFIX . 'reminder_catchup_options',
+			),
+		);
+	}
+
+	/**
+	 * Lit une action demandée par lien sur l'écran des relances.
+	 *
+	 * Le jeton est propre à l'argument ET à sa valeur : celui d'un e-mail de test
+	 * ne peut pas servir à lancer le rattrapage.
+	 *
+	 * @param string $arg Paramètre d'URL.
+	 *
+	 * @return string|null Valeur demandée, `null` si rien de valide n'est demandé.
+	 */
+	private function reminder_action( string $arg ): ?string {
+		/*
+		 * GET uniquement. Le formulaire de réglages poste vers l'adresse courante,
+		 * paramètres compris : sans cette garde, enregistrer un réglage juste après
+		 * avoir cliqué « Lancer » rejouerait l'action avec le jeton encore valide.
+		 */
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '';
+
+		if ( 'GET' !== $method ) {
+			return null;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- le jeton est vérifié juste après.
+		if ( ! isset( $_GET[ $arg ], $_GET['_wpnonce'] ) || ! current_user_can( 'manage_woocommerce' ) ) {
+			return null;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- idem.
+		$value = sanitize_key( wp_unslash( $_GET[ $arg ] ) );
+
+		if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), $arg . '_' . $value ) ) {
+			return null;
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Lien d'action de l'écran des relances, protégé par un jeton.
+	 *
+	 * @param string $arg     Paramètre d'URL.
+	 * @param string $value   Valeur demandée.
+	 * @param string $label   Libellé, déjà échappé.
+	 * @param string $confirm Question de confirmation, vide pour aucune.
+	 *
+	 * @return string
+	 */
+	private function reminder_link( string $arg, string $value, string $label, string $confirm = '' ): string {
+		// Retire d'abord les actions précédentes, pour ne jamais en cumuler deux.
+		$base = remove_query_arg( array( self::REMINDER_TEST_ARG, self::REMINDER_CATCHUP_ARG, '_wpnonce' ) );
+
+		return sprintf(
+			'<a href="%1$s" class="button%2$s"%3$s>%4$s</a>',
+			esc_url( wp_nonce_url( add_query_arg( $arg, $value, $base ), $arg . '_' . $value ) ),
+			'' !== $confirm ? ' ebisn-confirm' : '',
+			'' !== $confirm ? ' title="' . esc_attr( $confirm ) . '"' : '',
+			$label
+		);
+	}
+
+	/**
+	 * Le module de relances, s'il est actif et pas en veille.
+	 *
+	 * @return ReminderModule|null
+	 */
+	private function reminder_module(): ?ReminderModule {
+		$module = Plugin::instance()->get_module( 'reminder' );
+
+		return $module instanceof ReminderModule && '' === $module->dormant_reason() ? $module : null;
+	}
+
+	/**
+	 * Exécute l'e-mail de test, le lancement ou l'arrêt du rattrapage demandés.
+	 *
+	 * Appelée par `SettingsPage` AVANT tout affichage : elle rend les messages à
+	 * montrer, que la page place en mémoire avant de rediriger vers une adresse
+	 * sans paramètres. Recharger la page ne rejoue ainsi jamais l'action — un
+	 * jeton resté dans l'URL relancerait un rattrapage terminé, ou renverrait
+	 * un e-mail de test.
+	 *
+	 * @return array<int, array{type:string, text:string}> Messages, vide si rien n'a été demandé.
+	 */
+	public function handle_reminder_actions(): array {
+		$test    = $this->reminder_action( self::REMINDER_TEST_ARG );
+		$catchup = $this->reminder_action( self::REMINDER_CATCHUP_ARG );
+
+		if ( null === $test && null === $catchup ) {
+			return array();
+		}
+
+		if ( null === $this->reminder_module() ) {
+			return array(
+				array(
+					'type' => 'error',
+					'text' => __( 'Le module « Relances » est désactivé ou en veille : rien n’a été fait.', 'extender-for-back-in-stock-notifier' ),
+				),
+			);
+		}
+
+		$flash = array();
+
+		if ( null !== $test && in_array( $test, array( '1', '2' ), true ) ) {
+			$user  = wp_get_current_user();
+			$email = ReminderMailer::email();
+
+			if ( null !== $email && $email->send_test( (int) $test, (string) $user->user_email ) ) {
+				$flash[] = array(
+					'type' => 'message',
+					'text' => sprintf(
+						/* translators: 1: rang de la relance, 2: adresse du destinataire. */
+						__( 'E-mail de test de la relance %1$s envoyé à %2$s. Le lien de désabonnement et le code promo y sont factices.', 'extender-for-back-in-stock-notifier' ),
+						$test,
+						$user->user_email
+					),
+				);
+			} else {
+				$flash[] = array(
+					'type' => 'error',
+					'text' => __( 'L’e-mail de test n’a pas pu être envoyé. Vérifiez qu’il est activé dans WooCommerce → Réglages → E-mails, et que votre compte a une adresse valide.', 'extender-for-back-in-stock-notifier' ),
+				);
+			}
+		}
+
+		if ( 'start' === $catchup || 'stop' === $catchup ) {
+			$job = new ReminderCatchup( new ReminderQuery(), new ReminderService() );
+
+			if ( 'stop' === $catchup ) {
+				$job->stop();
+
+				$flash[] = array(
+					'type' => 'message',
+					'text' => __( 'Rattrapage arrêté. Les personnes déjà relancées le restent.', 'extender-for-back-in-stock-notifier' ),
+				);
+			} elseif ( $job->start( ReminderCatchup::max_age_days() ) ) {
+				$flash[] = array(
+					'type' => 'message',
+					'text' => __( 'Rattrapage lancé. Les relances partent par passages, de 9 h à 20 h.', 'extender-for-back-in-stock-notifier' ),
+				);
+			} else {
+				$flash[] = array(
+					'type' => 'message',
+					'text' => __( 'Un rattrapage est déjà en cours.', 'extender-for-back-in-stock-notifier' ),
+				);
+			}
+		}
+
+		return $flash;
+	}
+
+	/**
+	 * Contenu de la ligne « Lancer » : consignes, tests, décompte, boutons.
+	 *
+	 * @return string
+	 */
+	private function reminder_catchup_text(): string {
+		$module = Plugin::instance()->get_module( 'reminder' );
+
+		if ( ! $module instanceof ReminderModule ) {
+			return esc_html__( 'Activez d’abord le module « Relances » (section Modules), puis revenez ici.', 'extender-for-back-in-stock-notifier' );
+		}
+
+		$dormant = $module->dormant_reason();
+
+		if ( '' !== $dormant ) {
+			return '<strong style="color:#b32d2e">' . esc_html__( 'Module en veille.', 'extender-for-back-in-stock-notifier' ) . '</strong> ' . esc_html( $dormant );
+		}
+
+		$job   = new ReminderCatchup( new ReminderQuery(), new ReminderService() );
+		$state = $job->state();
+		$age   = ReminderCatchup::max_age_days();
+
+		$mail_link = sprintf(
+			'<a href="%1$s">%2$s</a>',
+			esc_url( admin_url( 'admin.php?page=wc-settings&tab=email&section=' . ReminderMailer::SETTINGS_SECTION ) ),
+			esc_html__( 'Modifier les modèles d’e-mail', 'extender-for-back-in-stock-notifier' )
+		);
+
+		$tests = $this->reminder_link( self::REMINDER_TEST_ARG, '1', esc_html__( 'M’envoyer un test de la relance 1', 'extender-for-back-in-stock-notifier' ) );
+
+		if ( ReminderService::max_steps() > 1 ) {
+			$tests .= ' ' . $this->reminder_link( self::REMINDER_TEST_ARG, '2', esc_html__( 'M’envoyer un test de la relance 2', 'extender-for-back-in-stock-notifier' ) );
+		}
+
+		$out = '<p>' . $mail_link . ' — ' . esc_html__( 'puis contrôlez le rendu :', 'extender-for-back-in-stock-notifier' ) . '</p><p>' . $tests . '</p>';
+
+		if ( JobState::STATUS_RUNNING === $state->status() ) {
+			$out .= '<p>' . sprintf(
+				/* translators: 1: inscriptions examinées, 2: relances envoyées, 3: relances sautées. */
+				esc_html__( 'Rattrapage en cours : %1$s inscription(s) examinée(s), %2$s relance(s) envoyée(s), %3$s sautée(s). Rien ne part en dehors de 9 h–20 h.', 'extender-for-back-in-stock-notifier' ),
+				'<strong>' . esc_html( number_format_i18n( $state->processed() ) ) . '</strong>',
+				'<strong>' . esc_html( number_format_i18n( $state->affected() ) ) . '</strong>',
+				'<strong>' . esc_html( number_format_i18n( (int) $state->get( 'skipped', 0 ) ) ) . '</strong>'
+			) . '</p><p>' . $this->reminder_link( self::REMINDER_CATCHUP_ARG, 'stop', esc_html__( 'Arrêter le rattrapage', 'extender-for-back-in-stock-notifier' ), __( 'Arrêter le rattrapage ? Les personnes déjà relancées le restent.', 'extender-for-back-in-stock-notifier' ) ) . '</p>';
+
+			return $out;
+		}
+
+		if ( JobState::STATUS_FAILED === $state->status() ) {
+			$out .= '<p><strong style="color:#b32d2e">' . esc_html__( 'Le dernier rattrapage s’est interrompu sur une erreur :', 'extender-for-back-in-stock-notifier' ) . '</strong> ' . esc_html( (string) $state->get( 'last_error', '' ) ) . '</p>';
+		}
+
+		if ( JobState::STATUS_DONE === $state->status() && (int) $state->get( 'finished_at', 0 ) > 0 ) {
+			$out .= '<p>' . sprintf(
+				/* translators: 1: date, 2: relances envoyées, 3: relances sautées. */
+				esc_html__( 'Dernier rattrapage (%1$s) : %2$s relance(s) envoyée(s), %3$s sautée(s).', 'extender-for-back-in-stock-notifier' ),
+				esc_html( wp_date( (string) get_option( 'date_format' ), (int) $state->get( 'finished_at', 0 ) ) ),
+				'<strong>' . esc_html( number_format_i18n( $state->affected() ) ) . '</strong>',
+				'<strong>' . esc_html( number_format_i18n( (int) $state->get( 'skipped', 0 ) ) ) . '</strong>'
+			) . '</p>';
+		}
+
+		$count = $job->eligible_count( $age );
+
+		if ( 0 === $count ) {
+			return $out . '<p>' . esc_html__( 'Aucune inscription à rattraper : personne n’a reçu d’alerte avant l’activation du module, dans cette période, sans avoir déjà été relancé.', 'extender-for-back-in-stock-notifier' ) . '</p>';
+		}
+
+		$out .= '<p>' . sprintf(
+			/* translators: 1: nombre de personnes, 2: délai de la première relance en jours, 3: ancienneté maximale en jours. */
+			esc_html__( 'Jusqu’à %1$s personne(s) : alertes envoyées il y a plus de %2$s jour(s) et moins de %3$s, avant l’activation du module, jamais relancées. Les alertes plus récentes sont relancées automatiquement. Le stock et les commandes sont revérifiés au moment de l’envoi, ce qui peut réduire ce nombre.', 'extender-for-back-in-stock-notifier' ),
+			'<strong>' . esc_html( number_format_i18n( $count ) ) . '</strong>',
+			esc_html( number_format_i18n( (int) round( ReminderService::delay_seconds( 1 ) / DAY_IN_SECONDS ) ) ),
+			esc_html( number_format_i18n( $age ) )
+		) . '</p>';
+
+		return $out . '<p>' . $this->reminder_link(
+			self::REMINDER_CATCHUP_ARG,
+			'start',
+			esc_html__( 'Lancer le rattrapage', 'extender-for-back-in-stock-notifier' ),
+			sprintf(
+				/* translators: %s: nombre de personnes. */
+				__( 'Envoyer la relance à %s personne(s) au plus ? Cette action n’est pas annulable pour les e-mails déjà partis.', 'extender-for-back-in-stock-notifier' ),
+				number_format_i18n( $count )
+			)
+		) . '</p>';
+	}
+
+	/**
+	 * Texte d'introduction de la section « Relances ».
+	 *
+	 * @return string
+	 */
+	private function reminder_intro(): string {
+		$link = sprintf(
+			'<a href="%1$s">%2$s</a>',
+			esc_url( admin_url( 'admin.php?page=wc-settings&tab=email&section=' . ReminderMailer::SETTINGS_SECTION ) ),
+			esc_html__( 'WooCommerce → Réglages → E-mails', 'extender-for-back-in-stock-notifier' )
+		);
+
+		return sprintf(
+			/* translators: %s: lien vers les réglages de l'e-mail. */
+			__( 'Une personne prévenue du retour en stock qui n’a pas commandé reçoit un e-mail de relance, tant que le produit est disponible. Elle n’est relancée ni si elle a commandé, ni si elle s’est désabonnée. Seules les alertes envoyées après l’activation du module sont concernées. Le texte, l’objet et l’aperçu des relances se règlent dans %s.', 'extender-for-back-in-stock-notifier' ),
+			$link
+		);
 	}
 
 	/**
