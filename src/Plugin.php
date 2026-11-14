@@ -9,6 +9,7 @@ namespace EBISN;
 
 use EBISN\Admin\Admin;
 use EBISN\Modules\ModuleInterface;
+use EBISN\Reminder\ReminderMailer;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -79,6 +80,14 @@ final class Plugin {
 		}
 
 		$this->register_modules();
+
+		/*
+		 * L'e-mail de relance est déclaré À PART des modules : le marchand doit
+		 * pouvoir en rédiger les textes et en voir l'aperçu AVANT d'activer le
+		 * module qui l'envoie. Déclaré, il n'envoie rien — seuls le balayage et le
+		 * rattrapage, que le module câble, l'utilisent.
+		 */
+		( new ReminderMailer() )->register();
 
 		/*
 		 * WordPress n'exécute pas le hook d'activation lors d'une mise à jour :

@@ -10,7 +10,6 @@ namespace EBISN\Modules;
 use EBISN\Integration\BackInStockNotifier as Host;
 use EBISN\Plugin;
 use EBISN\Reminder\ReminderCatchup;
-use EBISN\Reminder\ReminderMailer;
 use EBISN\Reminder\ReminderQuery;
 use EBISN\Reminder\ReminderService;
 use EBISN\Reminder\ReminderSweep;
@@ -100,8 +99,6 @@ final class Reminder extends AbstractModule {
 		if ( '' !== $this->dormant_reason() ) {
 			return;
 		}
-
-		( new ReminderMailer() )->register();
 
 		$this->sweep = new ReminderSweep( new ReminderQuery(), new ReminderService() );
 		$this->sweep->register();

@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.11.0
+Stable tag: 0.11.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -124,6 +124,11 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.11.1 =
+* L'e-mail de relance apparaît dans WooCommerce → Réglages → E-mails dès l'installation, même
+  module « Relances » désactivé ou en veille : on peut en rédiger les textes et en voir l'aperçu
+  avant d'activer l'envoi. Déclaré, il n'envoie rien tant que le module n'est pas actif.
 
 = 0.11.0 =
 * Une inscription n'a droit qu'à UNE séquence de relances, et non plus une par alerte : si elle est

@@ -4,7 +4,7 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.11.0
+- **Version** : 0.11.1
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
   Back In Stock Notifier 7.0+ (relu sur 7.5.3)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
@@ -95,7 +95,7 @@ extender-for-back-in-stock-notifier/
     │   ├── ReminderService.php              Contrôles à l'envoi, écritures, hooks ebisn_reminder_*
     │   ├── ReminderSweep.php                Passage horaire auto-replanifié, plage d'envoi
     │   ├── ReminderEmail.php                E-mail WooCommerce, deux jeux de champs
-    │   └── ReminderMailer.php               Enregistrement de l'e-mail, expéditeur de l'hôte
+    │   └── ReminderMailer.php               Enregistrement de l'e-mail (hors module : configurable avant activation), expéditeur de l'hôte
     ├── Migration/
     │   └── LegacyConversionMeta.php         Reprise des métadonnées des snippets WPCode
     ├── Modules/
