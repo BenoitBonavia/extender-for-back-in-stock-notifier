@@ -10,6 +10,7 @@ namespace EBISN\Reminder;
 use EBISN\Conversion\OrderLookup;
 use EBISN\Conversion\OrderMatcher;
 use EBISN\Integration\BackInStockNotifier as Host;
+use EBISN\Support\Database;
 use EBISN\Support\Logger;
 use EBISN\Support\Settings;
 use EBISN\Tracking\DeliveryHistory;
@@ -41,6 +42,15 @@ final class ReminderService {
 	 * Cycle d'alerte (`cwginstock_mail_on`) auquel `META_SENT` se rapporte.
 	 */
 	public const META_CYCLE = '_ebisn_reminder_cycle';
+
+	/**
+	 * Cycle d'alerte (`cwginstock_mail_on`) sur lequel la séquence de relances a démarré.
+	 *
+	 * Contrairement à `META_CYCLE`, il ne se renouvelle JAMAIS : une inscription
+	 * n'a droit qu'à une séquence de relances, et ne la rejoue pas après une
+	 * nouvelle alerte. Écrit à l'envoi de la première relance — pas à une relance sautée.
+	 */
+	public const META_FIRST_CYCLE = '_ebisn_reminded_cycle';
 
 	/**
 	 * Dernier échec d'envoi.
@@ -262,6 +272,18 @@ final class ReminderService {
 			return self::RESULT_IGNORED;
 		}
 
+		/*
+		 * Une seule séquence par inscription, pas par alerte. Si des relances sont
+		 * déjà parties sur une alerte PRÉCÉDENTE, celle-ci n'en reçoit aucune : le
+		 * rang 2 d'une séquence entamée sur la MÊME alerte reste, lui, permis.
+		 * Le rattrapage, lui, ne prend que les inscriptions jamais relancées.
+		 */
+		$first = (int) get_post_meta( $subscription_id, self::META_FIRST_CYCLE, true );
+
+		if ( $catchup ? $first > 0 : ( $first > 0 && $first !== $mail_on ) ) {
+			return self::RESULT_IGNORED;
+		}
+
 		// Rang consigné : le dernier configuré pour un rattrapage, qui n'a pas de suite.
 		$recorded = $catchup ? self::max_steps() : $step;
 
@@ -319,6 +341,11 @@ final class ReminderService {
 		update_post_meta( $subscription_id, self::META_CYCLE, $mail_on );
 		update_post_meta( $subscription_id, self::META_SENT, $recorded );
 
+		// Marque l'alerte qui porte la séquence — jamais écrit pour une relance sautée.
+		if ( 0 === $first ) {
+			update_post_meta( $subscription_id, self::META_FIRST_CYCLE, $mail_on );
+		}
+
 		$delivered = $email->trigger( $subscription_id, $step, self::max_steps() === $step );
 
 		if ( true !== $delivered ) {
@@ -357,6 +384,68 @@ final class ReminderService {
 		do_action( 'ebisn_reminder_sent', $subscription_id, $step );
 
 		return self::RESULT_SENT;
+	}
+
+	/**
+	 * Reprend l'existant, une seule fois : voir `migrate_first_cycle()`.
+	 */
+	public static function ensure_migrated(): void {
+		if ( Settings::get_bool( 'reminder_first_cycle_migrated', false ) ) {
+			return;
+		}
+
+		if ( self::migrate_first_cycle() ) {
+			Settings::update( 'reminder_first_cycle_migrated', 'yes' );
+		}
+	}
+
+	/**
+	 * Pose le marqueur de séquence sur les inscriptions déjà relancées avant la règle.
+	 *
+	 * Les versions précédentes comptaient les relances PAR alerte, sans marqueur de
+	 * vie entière. Une inscription qui a reçu une relance — `_ebisn_reminder_{n}_at`
+	 * — garde donc, comme alerte porteuse, celle que `_ebisn_reminder_cycle`
+	 * désigne. Sans cette reprise, elle serait relancée une seconde fois à sa
+	 * prochaine alerte.
+	 *
+	 * Limite connue : si une relance a depuis été SAUTÉE sur une alerte ultérieure,
+	 * `_ebisn_reminder_cycle` désigne cette alerte-là. Cas improbable, les versions
+	 * concernées étant récentes.
+	 *
+	 * @return bool Faux si la requête a échoué : le drapeau n'est alors pas posé, la reprise sera retentée.
+	 */
+	private static function migrate_first_cycle(): bool {
+		global $wpdb;
+
+		$sql = "INSERT INTO {$wpdb->postmeta} ( post_id, meta_key, meta_value )
+				SELECT c.post_id, %s, c.meta_value
+				  FROM {$wpdb->postmeta} c
+				 WHERE c.meta_key = %s
+				   AND EXISTS (
+						SELECT 1 FROM {$wpdb->postmeta} s
+						 WHERE s.post_id = c.post_id
+						   AND s.meta_key IN ( %s, %s )
+				   )
+				   AND NOT EXISTS (
+						SELECT 1 FROM {$wpdb->postmeta} f
+						 WHERE f.post_id = c.post_id
+						   AND f.meta_key = %s
+				   )";
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- requête assemblée avec des marqueurs, puis passée à prepare() ; reprise ponctuelle.
+		$wpdb->query(
+			$wpdb->prepare(
+				$sql,
+				self::META_FIRST_CYCLE,
+				self::META_CYCLE,
+				self::meta_sent_at( 1 ),
+				self::meta_sent_at( 2 ),
+				self::META_FIRST_CYCLE
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		return '' === Database::last_error();
 	}
 
 	/**

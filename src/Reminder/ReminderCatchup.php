@@ -17,7 +17,8 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Relance, UNE fois et seulement sur clic, les personnes prévenues il y a plus
- * que le délai de la première relance et jamais relancées depuis.
+ * que le délai de la première relance et JAMAIS relancées — ni sur cette alerte,
+ * ni sur une précédente : une inscription n'a droit qu'à une séquence de relances.
  *
  * Le balayage automatique (`ReminderSweep`) ne touche que les alertes postérieures
  * à l'activation du module. Ce travail comble l'historique, mais sur décision du
@@ -163,6 +164,9 @@ final class ReminderCatchup {
 		if ( $state->is_running() ) {
 			return false;
 		}
+
+		// Avant de sélectionner qui que ce soit : les relances déjà parties doivent être connues.
+		ReminderService::ensure_migrated();
 
 		$state->merge(
 			array(
@@ -348,7 +352,7 @@ final class ReminderCatchup {
 
 		while ( $sent < $limit && microtime( true ) < $deadline ) {
 			try {
-				$batch = $this->query->candidates( $cursor, self::READ_SIZE, $window['since'], $window['latest'], 1 );
+				$batch = $this->query->candidates( $cursor, self::READ_SIZE, $window['since'], $window['latest'], 1, true );
 			} catch ( \RuntimeException $error ) {
 				// Erreur de lecture : ce n'est PAS la fin de la liste. Terminer ici
 				// marquerait le rattrapage comme fini alors qu'il reste du monde.

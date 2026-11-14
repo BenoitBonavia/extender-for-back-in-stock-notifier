@@ -4,7 +4,7 @@ Extension maison de **Back In Stock Notifier for WooCommerce | WooCommerce Waitl
 (ProPluginsLab). Elle ne remplace pas le plugin hôte : elle s'y accroche, et ne fonctionne
 pas sans lui.
 
-- **Version** : 0.10.0
+- **Version** : 0.11.0
 - **Prérequis** : WordPress 6.8+, PHP 7.4+, WooCommerce 9.9+ (testé jusqu'à 11.0),
   Back In Stock Notifier 7.0+ (relu sur 7.5.3)
 - **Préfixe** : `ebisn_` (options, hooks) / `EBISN\` (namespace PHP)
@@ -164,6 +164,19 @@ commandé fournisseur, commandes clients en attente toujours servies en premier.
 
 ## Relances
 
+**Une seule séquence de relances par inscription**, et non une par alerte : la méta
+`_ebisn_reminded_cycle` retient le `cwginstock_mail_on` de l'alerte sur laquelle la première relance
+est partie. Une nouvelle alerte (après une rupture) ne déclenche plus rien ; la relance 2 d'une
+séquence entamée sur la même alerte reste permise. Seule une relance **envoyée** pose le marqueur — une
+relance sautée laisse son droit à l'inscription. Les versions antérieures sont reprises une fois
+(`ReminderService::migrate_first_cycle()`).
+
+| Alerte courante | `_ebisn_reminded_cycle` | Relance ? |
+|---|---|---|
+| quelconque | absent | oui |
+| `T1` | `T1` | oui (rang suivant) |
+| `T2` | `T1` | **non** |
+
 Une inscription est relancée au rang *n* quand son statut est `cwg_mailsent`, que
 `cwginstock_mail_on + délai(n)` est échu et que l'alerte est postérieure à l'activation du
 module (`ebisn_reminder_since`, posée au premier passage — aucun rattrapage de l'historique).
@@ -207,7 +220,7 @@ marchand dispose, dans Réglages → Relances → « Rattrapage de l'existant »
 envoie la **relance 1** aux inscriptions à « Alerte envoyée » dont l'alerte a plus que le délai
 de la première relance, moins que l'ancienneté maximale réglée (30 jours par défaut) et **précède
 l'activation du module** — les suivantes relèvent du balayage automatique, et les rattraper ici
-leur ôterait leur seconde relance —, et qui n'ont **jamais été relancées** sur ce cycle. Rien ne le démarre à l'activation du module ni à une
+leur ôterait leur seconde relance —, et qui n'ont **jamais été relancées**, sur aucune alerte (`_ebisn_reminded_cycle` absent). Rien ne le démarre à l'activation du module ni à une
 mise à jour — `ReminderCatchup::start()` n'est appelé que depuis ce bouton.
 
 - Mêmes contrôles qu'un envoi automatique, à l'envoi, **sauf la péremption** (`stale`).

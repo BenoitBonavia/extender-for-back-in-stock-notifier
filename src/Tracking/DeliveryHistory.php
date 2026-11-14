@@ -8,6 +8,7 @@
 namespace EBISN\Tracking;
 
 use EBISN\Integration\BackInStockNotifier as Host;
+use EBISN\Reminder\ReminderService;
 use EBISN\Renotify\RenotifyService;
 
 defined( 'ABSPATH' ) || exit;
@@ -250,6 +251,14 @@ final class DeliveryHistory {
 
 		if ( ! empty( $orphans ) ) {
 			$lines[] = __( 'Sur une alerte antérieure non datée', 'extender-for-back-in-stock-notifier' ) . ' : ' . self::reminder_list( $orphans );
+		}
+
+		// Une seule séquence de relances par inscription : on dit pourquoi l'alerte en cours n'en a pas.
+		$first   = (int) get_post_meta( $subscription_id, ReminderService::META_FIRST_CYCLE, true );
+		$mail_on = (int) get_post_meta( $subscription_id, Host::META_MAIL_ON, true );
+
+		if ( $first > 0 && $mail_on > 0 && $first !== $mail_on ) {
+			$lines[] = __( 'Séquence de relances déjà utilisée sur une alerte précédente : aucune relance sur celle-ci.', 'extender-for-back-in-stock-notifier' );
 		}
 
 		return $lines;

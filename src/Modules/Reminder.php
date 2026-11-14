@@ -65,7 +65,7 @@ final class Reminder extends AbstractModule {
 	 */
 	public function get_description(): string {
 		return __(
-			'L’alerte de retour en stock ne part qu’une fois : si la personne ne réagit pas, plus rien ne se passe. Ce module lui envoie, quelques jours plus tard, un e-mail rappelant que le produit est toujours disponible — une relance, et une seconde facultative. Elle n’est envoyée que si l’inscription est toujours à « Alerte envoyée », si le produit est encore en stock et si aucune commande de la personne ne le contient. Chaque e-mail porte un lien de désabonnement. Seules les alertes envoyées après l’activation sont relancées. Attention : ce module provoque de nouveaux envois d’e-mails.',
+			'L’alerte de retour en stock ne part qu’une fois : si la personne ne réagit pas, plus rien ne se passe. Ce module lui envoie, quelques jours plus tard, un e-mail rappelant que le produit est toujours disponible — une relance, et une seconde facultative. Elle n’est envoyée que si l’inscription est toujours à « Alerte envoyée », si le produit est encore en stock et si aucune commande de la personne ne le contient. Chaque e-mail porte un lien de désabonnement. Une inscription n’a droit qu’à une seule séquence de relances : si elle est notifiée de nouveau après une rupture, elle n’est pas relancée une seconde fois. Seules les alertes envoyées après l’activation sont relancées. Attention : ce module provoque de nouveaux envois d’e-mails.',
 			'extender-for-back-in-stock-notifier'
 		);
 	}

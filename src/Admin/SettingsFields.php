@@ -567,7 +567,7 @@ final class SettingsFields extends \WC_Settings_Page {
 			array(
 				'title' => __( 'Rattrapage de l’existant', 'extender-for-back-in-stock-notifier' ),
 				'type'  => 'title',
-				'desc'  => esc_html__( 'Relance, une fois et sur votre demande seulement, les personnes prévenues il y a plus longtemps que le délai de la première relance et jamais relancées depuis. Rien ne part à l’activation du module : relisez d’abord vos modèles d’e-mail.', 'extender-for-back-in-stock-notifier' ),
+				'desc'  => esc_html__( 'Relance, une fois et sur votre demande seulement, les personnes prévenues il y a plus longtemps que le délai de la première relance et jamais relancées, sur aucune alerte. Rien ne part à l’activation du module : relisez d’abord vos modèles d’e-mail.', 'extender-for-back-in-stock-notifier' ),
 				'id'    => Settings::PREFIX . 'reminder_catchup_options',
 			),
 			array(
@@ -844,7 +844,7 @@ final class SettingsFields extends \WC_Settings_Page {
 
 		return sprintf(
 			/* translators: %s: lien vers les réglages de l'e-mail. */
-			__( 'Une personne prévenue du retour en stock qui n’a pas commandé reçoit un e-mail de relance, tant que le produit est disponible. Elle n’est relancée ni si elle a commandé, ni si elle s’est désabonnée. Seules les alertes envoyées après l’activation du module sont concernées. Le texte, l’objet et l’aperçu des relances se règlent dans %s.', 'extender-for-back-in-stock-notifier' ),
+			__( 'Une personne prévenue du retour en stock qui n’a pas commandé reçoit un e-mail de relance, tant que le produit est disponible. Elle n’est relancée ni si elle a commandé, ni si elle s’est désabonnée, et une inscription n’a droit qu’à une seule séquence de relances : notifiée de nouveau après une rupture, elle n’est pas relancée une seconde fois. Seules les alertes envoyées après l’activation du module sont concernées. Le texte, l’objet et l’aperçu des relances se règlent dans %s.', 'extender-for-back-in-stock-notifier' ),
 			$link
 		);
 	}

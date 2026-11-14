@@ -5,7 +5,7 @@ Requires at least: 6.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: woocommerce, back-in-stock-notifier-for-woocommerce
-Stable tag: 0.10.0
+Stable tag: 0.11.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -124,6 +124,14 @@ Depuis l'écran Extensions, le lien « Check for updates » sous la ligne du plu
 La vérification automatique a lieu au plus toutes les 12 heures.
 
 == Changelog ==
+
+= 0.11.0 =
+* Une inscription n'a droit qu'à UNE séquence de relances, et non plus une par alerte : si elle est
+  notifiée de nouveau après une rupture, elle n'est pas relancée une seconde fois. La relance 2
+  facultative reste permise sur la même alerte que la relance 1. Seules les relances réellement
+  envoyées comptent : une relance sautée (rupture, commande déjà passée) laisse son droit intact.
+* Le rattrapage ne relance que les inscriptions jamais relancées, sur aucune alerte.
+* Reprise automatique des inscriptions déjà relancées par les versions précédentes.
 
 = 0.10.0 =
 * Nouveau module « Historique des envois par inscription », activé par défaut : la liste des

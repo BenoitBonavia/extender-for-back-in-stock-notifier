@@ -29,20 +29,21 @@ final class ReminderQuery {
 	 * d'alerte courant : une inscription remise en attente puis notifiée de
 	 * nouveau a un autre `cwginstock_mail_on`, donc repart de zéro.
 	 *
-	 * @param int $cursor    Dernière inscription examinée.
-	 * @param int $limit     Taille du lot.
-	 * @param int $since     Alertes envoyées avant cette date (UNIX) : ignorées.
-	 * @param int $latest    Alertes envoyées après cette date (UNIX) : trop récentes pour la première relance.
-	 * @param int $max_steps Nombre de relances configurées.
+	 * @param int  $cursor    Dernière inscription examinée.
+	 * @param int  $limit     Taille du lot.
+	 * @param int  $since     Alertes envoyées avant cette date (UNIX) : ignorées.
+	 * @param int  $latest    Alertes envoyées après cette date (UNIX) : trop récentes pour la première relance.
+	 * @param int  $max_steps Nombre de relances configurées.
+	 * @param bool $never_reminded Ne garder que les inscriptions jamais relancées, sur aucune alerte (rattrapage).
 	 *
 	 * @return array<int, array{id:int, mail_on:int, sent:int}> `sent` : relances déjà traitées sur ce cycle.
 	 *
 	 * @throws \RuntimeException Si la lecture échoue : une liste vide serait prise pour la fin du parcours.
 	 */
-	public function candidates( int $cursor, int $limit, int $since, int $latest, int $max_steps ): array {
+	public function candidates( int $cursor, int $limit, int $since, int $latest, int $max_steps, bool $never_reminded = false ): array {
 		global $wpdb;
 
-		list( $sql, $values ) = $this->inner_query( $cursor, $since, $latest, $max_steps );
+		list( $sql, $values ) = $this->inner_query( $cursor, $since, $latest, $max_steps, $never_reminded );
 
 		$sql     .= ' ORDER BY p.ID ASC LIMIT %d';
 		$values[] = max( 1, $limit );
@@ -88,7 +89,7 @@ final class ReminderQuery {
 		global $wpdb;
 
 		// Rang final à 1 : ne ressortent que les inscriptions jamais relancées sur ce cycle.
-		list( $inner, $values ) = $this->inner_query( 0, $since, $latest, 1 );
+		list( $inner, $values ) = $this->inner_query( 0, $since, $latest, 1, true );
 
 		$sql = 'SELECT COUNT(*) FROM ( ' . $inner . ' ) due';
 
@@ -124,20 +125,22 @@ final class ReminderQuery {
 	/**
 	 * Sélection commune aux lectures : inscriptions notifiées et leur compteur de relances.
 	 *
-	 * @param int $cursor    Dernière inscription examinée.
-	 * @param int $since     Alertes envoyées avant cette date (UNIX) : ignorées.
-	 * @param int $latest    Alertes envoyées après cette date (UNIX) : trop récentes.
-	 * @param int $max_steps Rang final : les inscriptions l'ayant atteint sont écartées.
+	 * @param int  $cursor    Dernière inscription examinée.
+	 * @param int  $since     Alertes envoyées avant cette date (UNIX) : ignorées.
+	 * @param int  $latest    Alertes envoyées après cette date (UNIX) : trop récentes.
+	 * @param int  $max_steps Rang final : les inscriptions l'ayant atteint sont écartées.
+	 * @param bool $never_reminded Écarter aussi celles relancées sur une alerte précédente, pas seulement sur celle-ci.
 	 *
 	 * @return array{0:string, 1:array<int, int|string>} Requête sans tri ni limite, et ses valeurs.
 	 */
-	private function inner_query( int $cursor, int $since, int $latest, int $max_steps ): array {
+	private function inner_query( int $cursor, int $since, int $latest, int $max_steps, bool $never_reminded ): array {
 		global $wpdb;
 
 		$sql = "SELECT p.ID AS id,
 						MAX( CAST( mo.meta_value AS UNSIGNED ) ) AS mail_on,
 						MAX( CAST( rs.meta_value AS UNSIGNED ) ) AS sent,
-						MAX( CAST( rc.meta_value AS UNSIGNED ) ) AS cycle
+						MAX( CAST( rc.meta_value AS UNSIGNED ) ) AS cycle,
+						MAX( CAST( rf.meta_value AS UNSIGNED ) ) AS reminded
 				  FROM {$wpdb->posts} p
 				 INNER JOIN {$wpdb->postmeta} mo
 						 ON mo.post_id = p.ID
@@ -148,20 +151,23 @@ final class ReminderQuery {
 				  LEFT JOIN {$wpdb->postmeta} rc
 						 ON rc.post_id = p.ID
 						AND rc.meta_key = %s
+				  LEFT JOIN {$wpdb->postmeta} rf
+						 ON rf.post_id = p.ID
+						AND rf.meta_key = %s
 				 WHERE p.post_type = %s
 				   AND p.post_status = %s
 				   AND p.ID > %d
 				   AND CAST( mo.meta_value AS UNSIGNED ) >= %d
 				   AND CAST( mo.meta_value AS UNSIGNED ) <= %d
 				 GROUP BY p.ID
-				HAVING cycle IS NULL
-				    OR cycle <> mail_on
-				    OR sent < %d";
+				HAVING ( cycle IS NULL OR cycle <> mail_on OR sent < %d )
+				   AND ( reminded IS NULL" . ( $never_reminded ? '' : ' OR reminded = mail_on' ) . ' )';
 
 		$values = array(
 			Host::META_MAIL_ON,
 			ReminderService::META_SENT,
 			ReminderService::META_CYCLE,
+			ReminderService::META_FIRST_CYCLE,
 			Host::SUBSCRIBER_TYPE,
 			Host::STATUS_MAILSENT,
 			$cursor,

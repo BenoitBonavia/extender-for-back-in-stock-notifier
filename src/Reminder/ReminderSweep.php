@@ -122,6 +122,7 @@ final class ReminderSweep {
 
 		// Avant tout : détecte une longue interruption du module (voir la méthode).
 		ReminderService::touch();
+		ReminderService::ensure_migrated();
 
 		$next = time() + HOUR_IN_SECONDS;
 
